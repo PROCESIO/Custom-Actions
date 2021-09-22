@@ -4,4 +4,8 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Ringhel.Procesio.Action.Core" Version="1.12.1.1" />
+  </ItemGroup>
+
 </Project>
