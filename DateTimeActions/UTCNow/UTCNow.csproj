@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Target Name="IncludeDepsInPackage">
+
+    <ItemGroup>
+
+      <BuildOutputInPackage Include="$(OutDir)*" />
+
+    </ItemGroup>
+
+  </Target>
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <TargetsForTfmSpecificBuildOutput>
+
+      $(TargetsForTfmSpecificBuildOutput);IncludeDepsInPackage
+
+    </TargetsForTfmSpecificBuildOutput>
+
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>
+
+      $(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb;.json
+
+    </AllowedOutputExtensionsInPackageBuildOutputFolder>
+
+    <Version>1.12.1.1</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ringhel.Procesio.Action.Core" Version="1.12.1.1" />
+  </ItemGroup>
+
+</Project>
