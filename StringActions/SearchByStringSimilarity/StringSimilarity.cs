@@ -1,4 +1,4 @@
-﻿using com.ncd.ActionLib.Actions.Strings.Models;
+using com.ncd.ActionLib.Actions.Strings.Models;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
 using Ringhel.Procesio.Action.Core.Models;
@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace com.ncd.ActionLib.Actions.Strings
+namespace Actions.Strings
 {
     [ClassDecorator(Name = "Search by String Similarity", Shape = ActionShape.Square, Description = "Search a string in a list of strings by estimating the similarity", Classification = Classification.cat1, IsTestable = true, Tooltip = "")]
     [FEDecorator(Label = "Configuration", Type = FeComponentType.Side_pannel, Tab = "Details", RowId = 1, Parent = "Configuration")]
