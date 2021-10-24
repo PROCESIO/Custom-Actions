@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace list.returnnlastelments
+namespace list.returnnlastelements
 {
     [ClassDecorator(Name = "Return Last N Elements", Shape = ActionShape.Square, Description = "Returns the last N elements", IsTestable = true, Classification = Classification.cat1)]
     [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
