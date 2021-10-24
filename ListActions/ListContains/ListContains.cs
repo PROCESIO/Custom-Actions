@@ -1,13 +1,13 @@
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
 using Ringhel.Procesio.Action.Core.Utils;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using com.ncd.ActionLib.Actions.Utils;
 
-namespace com.ncd.ActionLib.Actions.Lists
+
+namespace lists.contains
 {
     [ClassDecorator(Name = "List Contains", Shape = ActionShape.Circle, Description = "Searching in a list " +
         "for a given object. Return true if found, otherwise false", IsTestable = true, Classification = Classification.cat1)]
@@ -46,7 +46,7 @@ namespace com.ncd.ActionLib.Actions.Lists
             // cannot be converted to JObj, it's not datamodel - can be int, string, bool 
             if (InputToBeFound.IsJObject() == false)
             {
-               // Check if input it's bool (bool ToString = > True, not true)
+                // Check if input it's bool (bool ToString = > True, not true)
                 bool successBool = bool.TryParse(InputToBeFound.ToString(), out bool boolToBeFound);
 
                 foreach (var item in InputList)
