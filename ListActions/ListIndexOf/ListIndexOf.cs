@@ -1,5 +1,4 @@
-﻿using com.ncd.ActionLib.Actions.Utils;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
 using Ringhel.Procesio.Action.Core.Utils;
@@ -7,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace com.ncd.ActionLib.Actions.Lists
+namespace list.index.Jobject
 {
     [ClassDecorator(Name = "List IndexOf", Shape = ActionShape.Circle, Description = "Searching in a list " +
         "for a given object. If found, return index, otherwise -1", IsTestable = true, Classification = Classification.cat1)]
