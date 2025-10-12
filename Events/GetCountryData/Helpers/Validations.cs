@@ -1,3 +1,5 @@
+using Ringhel.Procesio.Action.Core.Models.Credentials.API;
+
 namespace CountryAction.Common;
 
 public static class Validations
@@ -26,9 +28,9 @@ public static class Validations
         }
     }
 
-    public static void ValidateCredentials(object? client, object? config)
+    public static void ValidateCredentials(APICredentialsManager? credentials)
     {
-        if (client == null || config == null)
+        if (credentials?.Client == null || credentials.CredentialConfig == null)
         {
             throw new Exception("Invalid REST Credentials instance.");
         }
