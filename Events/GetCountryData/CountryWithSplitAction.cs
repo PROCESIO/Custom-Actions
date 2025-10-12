@@ -11,8 +11,12 @@ namespace CountryAction;
     Description = "Same as CountryAction but methods are split per output for showcasing ordering control.",
     Classification = Classification.cat1, IsTestable = true)]
 [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
-public class CountryActionSplit : IAction
+public class CountryWithSplitAction : IAction
 {
+    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 1, Tab = "Geo")]
+    [BEDecorator(IOProperty = Direction.Output)]
+    public object? GlobalStats { get; set; }
+
     [FEDecorator(Label = "Region", Type = FeComponentType.Select, RowId = 2, Tab = "Geo",
         Options = nameof(RegionList))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
@@ -21,6 +25,7 @@ public class CountryActionSplit : IAction
 
     [FEDecorator(Label = "Country Codes File", Type = FeComponentType.File, RowId = 3, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Input)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     public FileModel? CountryCodesFile { get; set; }
 
     [FEDecorator(Label = "Country", Type = FeComponentType.Select, RowId = 4, Tab = "Geo",
@@ -37,33 +42,36 @@ public class CountryActionSplit : IAction
     public string? Currency { get; set; }
     private IList<OptionModel> CurrencyList { get; set; } = new List<OptionModel>();
 
-    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 7, Tab = "Geo")]
-    [BEDecorator(IOProperty = Direction.Output)]
-    public object? GlobalStats { get; set; }
-
-    [FEDecorator(Label = "Refresh", Type = FeComponentType.Button, RowId = 8, Tab = "Geo")]
+    [FEDecorator(Label = "Refresh", Type = FeComponentType.Button, RowId = 6, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Input)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(GlobalStats), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     public bool Refresh { get; set; }
 
-    [FEDecorator(Label = "Region Info", Type = FeComponentType.DataType, RowId = 9, Tab = "Geo")]
+    [FEDecorator(Label = "Region Info", Type = FeComponentType.DataType, RowId = 7, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     public object? RegionInfo { get; set; }
 
-    [FEDecorator(Label = "Country Info", Type = FeComponentType.DataType, RowId = 10, Tab = "Geo")]
+    [FEDecorator(Label = "Country Info", Type = FeComponentType.DataType, RowId = 8, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     public object? CountryInfo { get; set; }
 
-    [FEDecorator(Label = "Local Time", Type = FeComponentType.Text, RowId = 11, Tab = "Geo")]
+    [FEDecorator(Label = "Local Time", Type = FeComponentType.Text, RowId = 9, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     public string? CountryLocalTime { get; set; }
 
-    [FEDecorator(Label = "Currency Info", Type = FeComponentType.DataType, RowId = 12, Tab = "Geo")]
+    [FEDecorator(Label = "Currency Info", Type = FeComponentType.DataType, RowId = 10, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Currency), Operator = Operator.NotEquals, Value = null)]
     public object? CurrencyInfo { get; set; }
 
-    [FEDecorator(Label = "Country Summary File", Type = FeComponentType.File, RowId = 13, Tab = "Geo")]
+    [FEDecorator(Label = "Country Summary File", Type = FeComponentType.File, RowId = 11, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     public FileModel? CountrySummaryFile { get; set; }
 
     public Task Execute()
@@ -153,7 +161,7 @@ public class CountryActionSplit : IAction
     {
         var all = await Commons.FetchAllCountries();
         var codes = await Commons.ParseCountryCodesFile(CountryCodesFile);
-        var filtered = Commons.FilterByCodesAndRegion(all, codes, Region).ToList();
+        var filtered = Commons.FilterByCodesAndRegion(all, codes, Region);
         CountryList = Commons.BuildCountryOptions(filtered);
     }
 

@@ -1,4 +1,4 @@
-﻿using CountryAction.Common;
+using CountryAction.Common;
 using Newtonsoft.Json.Linq;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
@@ -7,13 +7,16 @@ using Ringhel.Procesio.Action.Core.Utils;
 
 namespace CountryAction;
 
-[ClassDecorator(Name = "Get Country Data", Shape = ActionShape.Square,
-    Description = "Educational action using new events feature: loads countries, filters by region, exposes country + currency data.",
+[ClassDecorator(Name = "Get Country Data (Runtime Currency)", Shape = ActionShape.Square,
+    Description = "Duplicate of CountryAction showcasing currency info computed at runtime.",
     Classification = Classification.cat1, IsTestable = true)]
 [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
-public class CountryAction : IAction
+public class CountryWithEventsAction : IAction
 {
-    #region Properties
+    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 1, Tab = "Geo",
+        Tooltip = "Aggregated statistics over all countries (computed on load or refresh).")]
+    [BEDecorator(IOProperty = Direction.Output)]
+    public object? GlobalStats { get; set; }
 
     [FEDecorator(Label = "Region", Type = FeComponentType.Select, RowId = 2, Tab = "Geo",
         Options = nameof(RegionList), Tooltip = "Select a geographic region (e.g., Europe, Asia).")]
@@ -25,6 +28,7 @@ public class CountryAction : IAction
     [FEDecorator(Label = "Country Codes File", Type = FeComponentType.File, RowId = 3, Tab = "Geo",
         Tooltip = "Optional file (CSV or JSON array) listing ISO alpha-3 country codes to restrict the Country list.")]
     [BEDecorator(IOProperty = Direction.Input)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     public FileModel? CountryCodesFile { get; set; }
 
     [FEDecorator(Label = "Country", Type = FeComponentType.Select, RowId = 4, Tab = "Geo",
@@ -41,51 +45,51 @@ public class CountryAction : IAction
     public string? Currency { get; set; }
     private IList<OptionModel> CurrencyList { get; set; } = new List<OptionModel>();
 
-    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 7, Tab = "Geo",
-        Tooltip = "Aggregated statistics over all countries (computed on load or refresh).")]
-    [BEDecorator(IOProperty = Direction.Output)]
-    public object? GlobalStats { get; set; }
-
-    [FEDecorator(Label = "Refresh", Type = FeComponentType.Button, RowId = 8, Tab = "Geo",
+    [FEDecorator(Label = "Refresh", Type = FeComponentType.Button, RowId = 6, Tab = "Geo",
         Tooltip = "Press to re-run initialization (OnLoad logic) without recreating the action instance.")]
     [BEDecorator(IOProperty = Direction.Input)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(GlobalStats), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     public bool Refresh { get; set; }
 
-    [FEDecorator(Label = "Region Info", Type = FeComponentType.DataType, RowId = 9, Tab = "Geo",
+    [FEDecorator(Label = "Region Info", Type = FeComponentType.DataType, RowId = 7, Tab = "Geo",
         Tooltip = "Summary information for the selected region.")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     public object? RegionInfo { get; set; }
 
-    [FEDecorator(Label = "Country Info", Type = FeComponentType.DataType, RowId = 10, Tab = "Geo",
+    [FEDecorator(Label = "Country Info", Type = FeComponentType.DataType, RowId = 8, Tab = "Geo",
         Tooltip = "Detailed information for the selected country.")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     public object? CountryInfo { get; set; }
 
-    [FEDecorator(Label = "Local Time", Type = FeComponentType.Text, RowId = 11, Tab = "Geo",
+    [FEDecorator(Label = "Local Time", Type = FeComponentType.Text, RowId = 9, Tab = "Geo",
         Tooltip = "Current local time (approx) in the selected country's first reported timezone.")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     public string? CountryLocalTime { get; set; }
 
-    [FEDecorator(Label = "Currency Info", Type = FeComponentType.DataType, RowId = 12, Tab = "Geo",
+    [FEDecorator(Label = "Currency Info", Type = FeComponentType.DataType, RowId = 10, Tab = "Geo",
         Tooltip = "Information about the selected currency.")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Currency), Operator = Operator.NotEquals, Value = null)]
     public object? CurrencyInfo { get; set; }
 
-    [FEDecorator(Label = "Country Summary File", Type = FeComponentType.File, RowId = 13, Tab = "Geo",
+    [FEDecorator(Label = "Country Summary File", Type = FeComponentType.File, RowId = 11, Tab = "Geo",
         Tooltip = "Generated JSON summary for the selected country.")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     public FileModel? CountrySummaryFile { get; set; }
 
-    #endregion
+    public CountryWithEventsAction() { }
 
-    public CountryAction() { }
-
-    public Task Execute()
+    public async Task Execute()
     {
-        Validations.ValidateRegion(Region);
         Validations.ValidateCountry(Country);
-        return Task.CompletedTask;
+        Validations.ValidateCurrency(Currency);
+        CurrencyInfo = await Commons.BuildCurrencyInfo(Country, Currency);
     }
 
     [ControlEventHandler(
@@ -149,7 +153,7 @@ public class CountryAction : IAction
     {
         var all = await Commons.FetchAllCountries();
         var codes = await Commons.ParseCountryCodesFile(CountryCodesFile);
-        var filtered = Commons.FilterByCodesAndRegion(all, codes, Region).ToList();
+        var filtered = Commons.FilterByCodesAndRegion(all, codes, Region);
         CountryList = Commons.BuildCountryOptions(filtered);
     }
 
@@ -177,17 +181,5 @@ public class CountryAction : IAction
         CountryLocalTime = Commons.ComputeLocalTime(match["timezones"]?.FirstOrDefault()?.ToString());
         CountrySummaryFile = Commons.BuildCountrySummaryFile(match);
         CurrencyList = Commons.BuildCurrencyOptions(match["currencies"] as JObject);
-    }
-
-    [ControlEventHandler(
-        EventType = ControlEventType.OnChange,
-        TriggerControl = nameof(Currency),
-        InputControls = [nameof(Country), nameof(Currency)],
-        OutputControls = [nameof(CurrencyInfo)],
-        OutputTarget = OutputTarget.Value)]
-    public async Task OnCurrencyChange()
-    {
-        Validations.ValidateCurrency(Currency);
-        CurrencyInfo = await Commons.BuildCurrencyInfo(Country, Currency);
     }
 }
