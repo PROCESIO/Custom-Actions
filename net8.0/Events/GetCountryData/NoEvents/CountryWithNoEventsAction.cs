@@ -1,10 +1,10 @@
-using CountryAction.Common;
+using Common.Helpers;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
 using Ringhel.Procesio.Action.Core.Models;
 using Ringhel.Procesio.Action.Core.Utils;
 
-namespace CountryAction;
+namespace NoEvents;
 
 [ClassDecorator(Name = "Get Country Data (No Events)", Shape = ActionShape.Square,
     Description = "Educational action without events: predefined options showcase static configuration.",

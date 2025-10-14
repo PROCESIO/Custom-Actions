@@ -1,11 +1,11 @@
-﻿using CountryAction.Common;
+﻿using Common.Helpers;
 using Newtonsoft.Json.Linq;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
 using Ringhel.Procesio.Action.Core.Models;
 using Ringhel.Procesio.Action.Core.Utils;
 
-namespace CountryAction;
+namespace AllEvents;
 
 [ClassDecorator(Name = "Get Country Data", Shape = ActionShape.Square,
     Description = "Educational action using new events feature: loads countries, filters by region, exposes country + currency data.",
@@ -112,12 +112,12 @@ public class CountryAllEventsAction : IAction
     }
 
     [ControlEventHandler(
-        EventType = ControlEventType.OnChange,
+        EventType = ControlEventType.OnClick,
         TriggerControl = nameof(Refresh),
         OutputControls = [nameof(GlobalStats)],
         OutputTarget = OutputTarget.Value)]
     [ControlEventHandler(
-        EventType = ControlEventType.OnChange,
+        EventType = ControlEventType.OnClick,
         TriggerControl = nameof(Refresh),
         OutputControls = [nameof(Region)],
         OutputTarget = OutputTarget.Options)]

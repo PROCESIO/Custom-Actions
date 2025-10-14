@@ -1,4 +1,4 @@
-using CountryAction.Common;
+using Common.Helpers;
 using Newtonsoft.Json.Linq;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
@@ -6,7 +6,7 @@ using Ringhel.Procesio.Action.Core.Models;
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 using Ringhel.Procesio.Action.Core.Utils;
 
-namespace CountryAction;
+namespace WithCredentials;
 
 [ClassDecorator(Name = "Get Country Data (Credentials)", Shape = ActionShape.Square,
     Description = "Educational action using new events feature with required REST credentials.",
@@ -132,13 +132,13 @@ public class CountryWithCredentialsAction : IAction
     }
 
     [ControlEventHandler(
-        EventType = ControlEventType.OnChange,
+        EventType = ControlEventType.OnClick,
         TriggerControl = nameof(Refresh),
         InputControls = [nameof(Credentials)],
         OutputControls = [nameof(GlobalStats)],
         OutputTarget = OutputTarget.Value)]
     [ControlEventHandler(
-        EventType = ControlEventType.OnChange,
+        EventType = ControlEventType.OnClick,
         TriggerControl = nameof(Refresh),
         InputControls = [nameof(Credentials)],
         OutputControls = [nameof(Region)],
