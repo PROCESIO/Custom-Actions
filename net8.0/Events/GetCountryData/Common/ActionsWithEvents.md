@@ -83,9 +83,7 @@ Do not mix `Options` and `Value` in the same `ControlEventHandler` attribute. If
 - Split per output (ordering control): see `CountryWithSplitAction` where `PopulateCountryInfo`, `PopulateCountrySummary`, `PopulateCountryLocalTime`, and `PopulateCurrencies` each handle a single responsibility and declare an `Order`.
 
 Multiple methods with the same `TriggerControl`
-- All matching methods are invoked independently by reflection when the trigger property changes.
-- Use the `Order` property to control execution order if it matters; default `Order` is 0.
-- Important limitation: state does not persist between these method calls. Inputs come from the front-end state, not from a prior method in the same trigger chain. If `method1` changes a property value, `method2` will not see that new value unless the property is part of the front-end inputs for the trigger.
+- All matching methods are invoked by reflection when the trigger property changes. If more than one method is invoked, they might override each other's properties' values. Use the `Order` property to control execution order if it matters; default `Order` is 0.
 
 
 ## Property dependencies (DependencyDecorator)
