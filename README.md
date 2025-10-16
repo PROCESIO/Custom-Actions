@@ -58,7 +58,7 @@ Each property exposed to the front end typically has:
   - `DefaultValue` can set an initial value for text/number/checkbox types (such as a default value of 60 seconds for a number property representing a timeout).
   - `Min` and `Max` can constrain number inputs within a limited range.
   - `TextFormat` is an optional attribute used alongside `FeComponentType.Code_editor` for the UI to assist with syntax highlighting (PLAINTEXT, JSON, SQL, HTML, JAVASCRIPT).
-  - `CustomCredentialsTypeGuid` is an optional attribute used on `Credentials_*` FeComponentTypes to bind a specific credentials type's id (otherwise the default credentials picker is shown). This must be a valid GUID.
+  - `CustomCredentialsTypeGuid` is an optional attribute paired with `FeComponentType.Credentials_Custom` to bind a specific credentials type's id. This must be a valid GUID.
   - `Options` binds a collection property providing dropdown entries for `FeComponentType.Select`. The list property contains items of `OptionModel` instances filled either statically (hardcoded) or dynamically (events).
 - `BEDecorator(IOProperty = Direction.Input|Output|InputOutput)` to map to runtime inputs/outputs.
 - `Validator(IsRequired = true|false)` for basic validation prior to execution.

@@ -15,23 +15,27 @@ public class CountryWithSplitAction : IAction
 {
     [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 1, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
+    [Validator(IsRequired = false)]
     public object? GlobalStats { get; set; }
 
     [FEDecorator(Label = "Region", Type = FeComponentType.Select, RowId = 2, Tab = "Geo",
         Options = nameof(RegionList))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [Validator(IsRequired = true)]
     public string? Region { get; set; }
     private IList<OptionModel> RegionList { get; set; } = new List<OptionModel>();
 
     [FEDecorator(Label = "Country Codes File", Type = FeComponentType.File, RowId = 3, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Input)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
     public FileModel? CountryCodesFile { get; set; }
 
     [FEDecorator(Label = "Country", Type = FeComponentType.Select, RowId = 4, Tab = "Geo",
         Options = nameof(CountryList))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = true)]
     public string? Country { get; set; }
     private IList<OptionModel> CountryList { get; set; } = new List<OptionModel>();
 
@@ -39,6 +43,7 @@ public class CountryWithSplitAction : IAction
         Options = nameof(CurrencyList))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = true)]
     public string? Currency { get; set; }
     private IList<OptionModel> CurrencyList { get; set; } = new List<OptionModel>();
 
@@ -46,38 +51,45 @@ public class CountryWithSplitAction : IAction
     [BEDecorator(IOProperty = Direction.Input)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(GlobalStats), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
     public bool Refresh { get; set; }
 
     [FEDecorator(Label = "Region Info", Type = FeComponentType.DataType, RowId = 7, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
     public object? RegionInfo { get; set; }
 
     [FEDecorator(Label = "Country Info", Type = FeComponentType.DataType, RowId = 8, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
     public object? CountryInfo { get; set; }
 
     [FEDecorator(Label = "Local Time", Type = FeComponentType.Text, RowId = 9, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
     public string? CountryLocalTime { get; set; }
 
     [FEDecorator(Label = "Currency Info", Type = FeComponentType.DataType, RowId = 10, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Currency), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
     public object? CurrencyInfo { get; set; }
 
     [FEDecorator(Label = "Country Summary File", Type = FeComponentType.File, RowId = 11, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Output)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
     public FileModel? CountrySummaryFile { get; set; }
 
     public Task Execute()
     {
         Validations.ValidateRegion(Region);
         Validations.ValidateCountry(Country);
+        Validations.ValidateCurrency(Currency);
         return Task.CompletedTask;
     }
 
