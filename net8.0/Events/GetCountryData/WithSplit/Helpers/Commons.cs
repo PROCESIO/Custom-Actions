@@ -2,7 +2,7 @@ using Newtonsoft.Json.Linq;
 using Ringhel.Procesio.Action.Core.Models;
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 
-namespace Common.Helpers;
+namespace WithSplit.Helpers;
 
 public static class Commons
 {

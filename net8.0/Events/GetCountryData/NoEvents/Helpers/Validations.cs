@@ -1,6 +1,6 @@
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 
-namespace Common.Helpers;
+namespace NoEvents.Helpers;
 
 public static class Validations
 {
