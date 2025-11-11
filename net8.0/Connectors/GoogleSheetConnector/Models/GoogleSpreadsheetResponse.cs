@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace GoogleSheetConnector.Models;
-
-public sealed record GoogleSpreadsheetResponse
+namespace GoogleSheetConnector.Models
 {
-    [JsonPropertyName("spreadsheetId")]
-    public string? SpreadsheetId { get; init; }
+    public class GoogleSpreadsheetResponse
+    {
+        [JsonPropertyName("spreadsheetId")]
+        public string? SpreadsheetId { get; set; }
 
-    [JsonPropertyName("sheets")]
-    public IReadOnlyList<GoogleSheet>? Sheets { get; init; }
+        [JsonPropertyName("sheets")]
+        public List<GoogleSheet>? Sheets { get; set; }
+    }
 }
