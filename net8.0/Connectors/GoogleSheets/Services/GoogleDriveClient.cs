@@ -1,110 +1,104 @@
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
 using GoogleSheetsAction.Models;
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 
-namespace GoogleSheetsAction.Services
+namespace GoogleSheetsAction.Services;
+
+public sealed class GoogleDriveClient
 {
-    public class GoogleDriveClient
+    private const string BaseUrl = "https://www.googleapis.com/drive/v3";
+    private readonly APICredentialsManager _credentials;
+
+    public GoogleDriveClient(APICredentialsManager credentials)
     {
-        private const string BaseUrl = "https://www.googleapis.com/drive/v3";
-        private readonly APICredentialsManager _credentials;
-
-        public GoogleDriveClient(APICredentialsManager credentials)
+        _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
+        if (_credentials.Client is null)
         {
-            _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
-            if (_credentials.Client == null)
+            throw new ArgumentException("Credentials client is not configured.", nameof(credentials));
+        }
+    }
+
+    public async Task<IReadOnlyList<GoogleDriveItem>> ListDrivesAsync(int pageSize = 100)
+    {
+        var result = new List<GoogleDriveItem>();
+        var query = new Dictionary<string, string>
+        {
+            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture),
+            ["fields"] = "nextPageToken,drives(id,name)"
+        };
+
+        string? pageToken = null;
+        do
+        {
+            if (!string.IsNullOrEmpty(pageToken))
             {
-                throw new ArgumentException("Credentials client is not configured.", nameof(credentials));
+                query["pageToken"] = pageToken;
             }
-        }
-
-        public async Task<IReadOnlyList<GoogleDriveItem>> ListDrivesAsync(int pageSize = 100)
-        {
-            var result = new List<GoogleDriveItem>();
-            var query = new Dictionary<string, string>
+            else
             {
-                ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture),
-                ["fields"] = "nextPageToken,drives(id,name)"
-            };
-
-            string? pageToken = null;
-            do
-            {
-                if (!string.IsNullOrEmpty(pageToken))
-                {
-                    query["pageToken"] = pageToken;
-                }
-                else
-                {
-                    query.Remove("pageToken");
-                }
-
-                var response = await _credentials.Client!.GetAsync($"{BaseUrl}/drives", query, new()).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
-
-                var payload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var drives = JsonSerializer.Deserialize<GoogleDriveListResponse>(payload);
-                if (drives?.Drives != null && drives.Drives.Count > 0)
-                {
-                    result.AddRange(drives.Drives.Where(d => !string.IsNullOrWhiteSpace(d.Id)));
-                }
-
-                pageToken = drives?.NextPageToken;
-            } while (!string.IsNullOrEmpty(pageToken));
-
-            return result;
-        }
-
-        public async Task<IReadOnlyList<GoogleDriveFile>> ListSpreadsheetsAsync(string driveId, int pageSize = 100)
-        {
-            if (string.IsNullOrWhiteSpace(driveId))
-            {
-                throw new ArgumentException("Drive id cannot be empty.", nameof(driveId));
+                query.Remove("pageToken");
             }
 
-            var result = new List<GoogleDriveFile>();
-            var query = new Dictionary<string, string>
+            var response = await _credentials.Client!.GetAsync($"{BaseUrl}/drives", query, new());
+            response.EnsureSuccessStatusCode();
+
+            var payload = await response.Content.ReadAsStringAsync();
+            var drives = JsonSerializer.Deserialize<GoogleDriveListResponse>(payload);
+            if (drives?.Drives is { Count: > 0 })
             {
-                ["q"] = "mimeType='application/vnd.google-apps.spreadsheet'",
-                ["corpora"] = "drive",
-                ["driveId"] = driveId,
-                ["includeItemsFromAllDrives"] = "true",
-                ["supportsAllDrives"] = "true",
-                ["fields"] = "nextPageToken,files(id,name,webViewLink)",
-                ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
-            };
+                result.AddRange(drives.Drives.Where(d => !string.IsNullOrWhiteSpace(d.Id)));
+            }
 
-            string? pageToken = null;
-            do
+            pageToken = drives?.NextPageToken;
+        } while (!string.IsNullOrEmpty(pageToken));
+
+        return result;
+    }
+
+    public async Task<IReadOnlyList<GoogleDriveFile>> ListSpreadsheetsAsync(string driveId, int pageSize = 100)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(driveId);
+
+        var result = new List<GoogleDriveFile>();
+        var query = new Dictionary<string, string>
+        {
+            ["q"] = "mimeType='application/vnd.google-apps.spreadsheet'",
+            ["corpora"] = "drive",
+            ["driveId"] = driveId,
+            ["includeItemsFromAllDrives"] = "true",
+            ["supportsAllDrives"] = "true",
+            ["fields"] = "nextPageToken,files(id,name,webViewLink)",
+            ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
+        };
+
+        string? pageToken = null;
+        do
+        {
+            if (!string.IsNullOrEmpty(pageToken))
             {
-                if (!string.IsNullOrEmpty(pageToken))
-                {
-                    query["pageToken"] = pageToken;
-                }
-                else
-                {
-                    query.Remove("pageToken");
-                }
+                query["pageToken"] = pageToken;
+            }
+            else
+            {
+                query.Remove("pageToken");
+            }
 
-                var response = await _credentials.Client!.GetAsync($"{BaseUrl}/files", query, new()).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
+            var response = await _credentials.Client!.GetAsync($"{BaseUrl}/files", query, new());
+            response.EnsureSuccessStatusCode();
 
-                var payload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var files = JsonSerializer.Deserialize<GoogleDriveFileListResponse>(payload);
-                if (files?.Files != null && files.Files.Count > 0)
-                {
-                    result.AddRange(files.Files.Where(f => !string.IsNullOrWhiteSpace(f.Id)));
-                }
+            var payload = await response.Content.ReadAsStringAsync();
+            var files = JsonSerializer.Deserialize<GoogleDriveFileListResponse>(payload);
+            if (files?.Files is { Count: > 0 })
+            {
+                result.AddRange(files.Files.Where(f => !string.IsNullOrWhiteSpace(f.Id)));
+            }
 
-                pageToken = files?.NextPageToken;
-            } while (!string.IsNullOrEmpty(pageToken));
+            pageToken = files?.NextPageToken;
+        } while (!string.IsNullOrEmpty(pageToken));
 
-            return result;
-        }
+        return result;
     }
 }

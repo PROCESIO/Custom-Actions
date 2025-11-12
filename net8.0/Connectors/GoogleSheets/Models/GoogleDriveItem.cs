@@ -1,13 +1,12 @@
 using System.Text.Json.Serialization;
 
-namespace GoogleSheetsAction.Models
-{
-    public class GoogleDriveItem
-    {
-        [JsonPropertyName("id")]
-        public string? Id { get; set; }
+namespace GoogleSheetsAction.Models;
 
-        [JsonPropertyName("name")]
-        public string? Name { get; set; }
-    }
+public sealed record GoogleDriveItem
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
 }

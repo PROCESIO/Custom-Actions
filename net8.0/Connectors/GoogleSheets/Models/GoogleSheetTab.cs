@@ -1,13 +1,12 @@
 using System.Text.Json.Serialization;
 
-namespace GoogleSheetsAction.Models
-{
-    public class GoogleSheetTab
-    {
-        [JsonPropertyName("sheetId")]
-        public int SheetId { get; set; }
+namespace GoogleSheetsAction.Models;
 
-        [JsonPropertyName("title")]
-        public string? Title { get; set; }
-    }
+public sealed record GoogleSheetTab
+{
+    [JsonPropertyName("sheetId")]
+    public int SheetId { get; init; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; init; }
 }

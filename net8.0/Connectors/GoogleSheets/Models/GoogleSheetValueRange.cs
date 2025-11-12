@@ -1,17 +1,16 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace GoogleSheetsAction.Models
+namespace GoogleSheetsAction.Models;
+
+public sealed record GoogleSheetValueRange
 {
-    public class GoogleSheetValueRange
-    {
-        [JsonPropertyName("range")]
-        public string? Range { get; set; }
+    [JsonPropertyName("range")]
+    public string? Range { get; init; }
 
-        [JsonPropertyName("majorDimension")]
-        public string? MajorDimension { get; set; }
+    [JsonPropertyName("majorDimension")]
+    public string? MajorDimension { get; init; }
 
-        [JsonPropertyName("values")]
-        public List<List<string>>? Values { get; set; }
-    }
+    [JsonPropertyName("values")]
+    public IReadOnlyList<IReadOnlyList<string>>? Values { get; init; }
 }

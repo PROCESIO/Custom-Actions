@@ -1,16 +1,15 @@
 using System.Text.Json.Serialization;
 
-namespace GoogleSheetsAction.Models
+namespace GoogleSheetsAction.Models;
+
+public sealed record GoogleDriveFile
 {
-    public class GoogleDriveFile
-    {
-        [JsonPropertyName("id")]
-        public string? Id { get; set; }
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
 
-        [JsonPropertyName("name")]
-        public string? Name { get; set; }
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
 
-        [JsonPropertyName("webViewLink")]
-        public string? WebViewLink { get; set; }
-    }
+    [JsonPropertyName("webViewLink")]
+    public string? WebViewLink { get; init; }
 }

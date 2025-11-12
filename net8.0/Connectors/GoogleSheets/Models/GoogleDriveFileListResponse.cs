@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace GoogleSheetsAction.Models
-{
-    public class GoogleDriveFileListResponse
-    {
-        [JsonPropertyName("files")]
-        public List<GoogleDriveFile>? Files { get; set; }
+namespace GoogleSheetsAction.Models;
 
-        [JsonPropertyName("nextPageToken")]
-        public string? NextPageToken { get; set; }
-    }
+public sealed record GoogleDriveFileListResponse
+{
+    [JsonPropertyName("files")]
+    public IReadOnlyList<GoogleDriveFile>? Files { get; init; }
+
+    [JsonPropertyName("nextPageToken")]
+    public string? NextPageToken { get; init; }
 }

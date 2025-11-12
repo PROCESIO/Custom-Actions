@@ -1,10 +1,9 @@
 using System.Text.Json.Serialization;
 
-namespace GoogleSheetsAction.Models
+namespace GoogleSheetsAction.Models;
+
+public sealed record GoogleSheet
 {
-    public class GoogleSheet
-    {
-        [JsonPropertyName("properties")]
-        public GoogleSheetProperties? Properties { get; set; }
-    }
+    [JsonPropertyName("properties")]
+    public GoogleSheetProperties? Properties { get; init; }
 }
