@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ringhel.Procesio.Action.Core" Version="1.12.1.1" />
+    <PackageReference Include="Ringhel.Procesio.Action.Core" Version="1.40.3" />
   </ItemGroup>
 
 
