@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text.Json;
 using GoogleSheetsAction.Models;
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
@@ -9,7 +7,6 @@ namespace GoogleSheetsAction.Services;
 
 public sealed class GoogleDriveClient
 {
-    private const string BaseUrl = "https://www.googleapis.com/drive/v3";
     private readonly APICredentialsManager _credentials;
 
     public GoogleDriveClient(APICredentialsManager credentials)
@@ -27,7 +24,7 @@ public sealed class GoogleDriveClient
         var query = new Dictionary<string, string>
         {
             ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture),
-            ["fields"] = "nextPageToken,drives(id,name)"
+            ["fields"] = "nextPageToken"
         };
 
         string? pageToken = null;
@@ -42,7 +39,7 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client!.GetAsync($"{BaseUrl}/drives", query, new());
+            var response = await _credentials.Client!.GetAsync("drive/v3/drives", query, new());
             response.EnsureSuccessStatusCode();
 
             var payload = await response.Content.ReadAsStringAsync();
@@ -86,7 +83,7 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client!.GetAsync($"{BaseUrl}/files", query, new());
+            var response = await _credentials.Client!.GetAsync("drive/v3/files", query, new());
             response.EnsureSuccessStatusCode();
 
             var payload = await response.Content.ReadAsStringAsync();

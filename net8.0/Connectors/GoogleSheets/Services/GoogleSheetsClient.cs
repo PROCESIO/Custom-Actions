@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text.Json;
 using GoogleSheetsAction.Models;
 using Ringhel.Procesio.Action.Core.Models;
@@ -11,7 +8,6 @@ namespace GoogleSheetsAction.Services;
 
 public sealed class GoogleSheetsClient
 {
-    private const string BaseUrl = "https://sheets.googleapis.com/v4";
     private readonly APICredentialsManager _credentials;
 
     public GoogleSheetsClient(APICredentialsManager credentials)
@@ -27,7 +23,7 @@ public sealed class GoogleSheetsClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
 
-        var response = await _credentials.Client!.GetAsync($"{BaseUrl}/spreadsheets/{spreadsheetId}", new(), new());
+        var response = await _credentials.Client!.GetAsync($"v4/spreadsheets/{spreadsheetId}", new(), new());
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadAsStringAsync();
@@ -40,7 +36,7 @@ public sealed class GoogleSheetsClient
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
 
         var relativeRange = string.IsNullOrEmpty(range) ? sheetName : $"{sheetName}!{range}";
-        var response = await _credentials.Client!.GetAsync($"{BaseUrl}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}", new(), new());
+        var response = await _credentials.Client!.GetAsync($"v4/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}", new(), new());
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadAsStringAsync();

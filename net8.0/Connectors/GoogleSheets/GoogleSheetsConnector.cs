@@ -13,7 +13,7 @@ namespace GoogleSheetsAction;
     Classification = Classification.cat1, IsTestable = true)]
 [FEDecorator(Label = "Configuration", Type = FeComponentType.Side_pannel, RowId = 1, Tab = "Google Sheets", Parent = "Configuration")]
 [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
-public sealed class GoogleSheetsConnector : IAction
+public class GoogleSheetsConnector : IAction
 {
     private IList<OptionModel> ActionOptions { get; } = Enum.GetValues(typeof(GoogleSheetsActionType))
         .Cast<GoogleSheetsActionType>()
@@ -33,7 +33,13 @@ public sealed class GoogleSheetsConnector : IAction
         CustomCredentialsTypeGuid = "a65377cf-3092-4467-83e8-61b71d59cbbd")] //Google Sheets CredentialTemplate id
     [BEDecorator(IOProperty = Direction.Input)]
     [Validator(IsRequired = true)]
-    public APICredentialsManager? Credentials { get; set; }
+    public APICredentialsManager? SheetsCredentials { get; set; }
+
+    [FEDecorator(Label = "Google Drive Credential", Type = FeComponentType.Credentials_Rest, RowId = 1, Tab = "Google Sheets",
+        CustomCredentialsTypeGuid = "b2831f53-3e6f-401c-8a0e-31aaa06ea9fc")] //Google Drive CredentialTemplate id
+    [BEDecorator(IOProperty = Direction.Input)]
+    [Validator(IsRequired = true)]
+    public APICredentialsManager? DriveCredentials { get; set; }
 
     [FEDecorator(Label = "Action", Type = FeComponentType.Select, RowId = 2, Tab = "Google Sheets",
         Options = nameof(ActionOptions))]
@@ -51,7 +57,7 @@ public sealed class GoogleSheetsConnector : IAction
     [FEDecorator(Label = "Spreadsheet", Type = FeComponentType.Select, RowId = 20, Parent = "Configuration",
         Options = nameof(SpreadsheetOptions))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSpreadsheet))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = false)]
     public string? SpreadsheetId { get; set; }
@@ -86,7 +92,7 @@ public sealed class GoogleSheetsConnector : IAction
     [FEDecorator(Label = "Headers", Type = FeComponentType.Text, RowId = 60, Parent = "Configuration")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSpreadsheet))]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet))]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public string? Headers { get; set; }
 
@@ -141,26 +147,18 @@ public sealed class GoogleSheetsConnector : IAction
         // Runtime execution will be implemented per user story in subsequent iterations.
     }
 
-    [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(SelectedAction),
-        InputControls = [nameof(SelectedAction)], OutputControls = [nameof(DriveId), nameof(SpreadsheetId), nameof(SheetId), nameof(KeyColumn), nameof(TargetRowNumber)],
-        OutputTarget = OutputTarget.Options)]
-    public Task OnActionChanged()
-    {
-        ResetActionScopedOptions();
-        return ShouldLoadDesignTimeData() ? OnCredentialsChanged() : Task.CompletedTask;
-    }
-
-    [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(Credentials),
-        InputControls = [nameof(Credentials), nameof(SelectedAction)], OutputControls = [nameof(DriveId)], OutputTarget = OutputTarget.Options)]
+    [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(DriveCredentials),
+        InputControls = [nameof(DriveCredentials), nameof(SelectedAction)],
+        OutputControls = [nameof(DriveId)], OutputTarget = OutputTarget.Options)]
     public async Task OnCredentialsChanged()
     {
         ResetActionScopedOptions();
-        if (!ShouldLoadDesignTimeData())
+        if (DriveCredentials?.Client is null)
         {
             return;
         }
 
-        var driveClient = new GoogleDriveClient(Credentials!);
+        var driveClient = new GoogleDriveClient(DriveCredentials!);
         var drives = await driveClient.ListDrivesAsync();
         DriveOptions.Clear();
         foreach (var drive in drives)
@@ -178,7 +176,8 @@ public sealed class GoogleSheetsConnector : IAction
     }
 
     [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(DriveId),
-        InputControls = [nameof(Credentials), nameof(DriveId)], OutputControls = [nameof(SpreadsheetId)], OutputTarget = OutputTarget.Options)]
+        InputControls = [nameof(DriveCredentials), nameof(DriveId)],
+        OutputControls = [nameof(SpreadsheetId)], OutputTarget = OutputTarget.Options)]
     public async Task OnDriveChanged()
     {
         SpreadsheetOptions.Clear();
@@ -186,12 +185,13 @@ public sealed class GoogleSheetsConnector : IAction
         HeaderOptions.Clear();
         RowIndexOptions.Clear();
 
-        if (!ShouldLoadDesignTimeData() || string.IsNullOrWhiteSpace(DriveId))
+        if (DriveCredentials?.Client is null ||
+            string.IsNullOrWhiteSpace(DriveId))
         {
             return;
         }
 
-        var driveClient = new GoogleDriveClient(Credentials!);
+        var driveClient = new GoogleDriveClient(DriveCredentials!);
         var spreadsheets = await driveClient.ListSpreadsheetsAsync(DriveId);
         foreach (var file in spreadsheets)
         {
@@ -203,19 +203,21 @@ public sealed class GoogleSheetsConnector : IAction
     }
 
     [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(SpreadsheetId),
-        InputControls = [nameof(Credentials), nameof(SpreadsheetId)], OutputControls = [nameof(SheetId)], OutputTarget = OutputTarget.Options)]
+        InputControls = [nameof(SheetsCredentials), nameof(SpreadsheetId)], OutputControls = [nameof(SheetId)], OutputTarget = OutputTarget.Options)]
     public async Task OnSpreadsheetChanged()
     {
         SheetOptions.Clear();
         HeaderOptions.Clear();
         RowIndexOptions.Clear();
 
-        if (!ShouldLoadDesignTimeData() || string.IsNullOrWhiteSpace(SpreadsheetId))
+        if (SheetsCredentials?.Client is null ||
+            string.IsNullOrWhiteSpace(SelectedAction) ||
+            string.IsNullOrWhiteSpace(SpreadsheetId))
         {
             return;
         }
 
-        var sheetsClient = new GoogleSheetsClient(Credentials!);
+        var sheetsClient = new GoogleSheetsClient(SheetsCredentials!);
         var spreadsheet = await sheetsClient.GetSpreadsheetAsync(SpreadsheetId);
         if (spreadsheet?.Sheets is null)
         {
@@ -236,19 +238,22 @@ public sealed class GoogleSheetsConnector : IAction
     }
 
     [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(SheetId),
-        InputControls = [nameof(Credentials), nameof(SpreadsheetId), nameof(SheetId), nameof(SelectedAction)],
+        InputControls = [nameof(SheetsCredentials), nameof(SpreadsheetId), nameof(SheetId), nameof(SelectedAction)],
         OutputControls = [nameof(KeyColumn), nameof(TargetRowNumber)], OutputTarget = OutputTarget.Options)]
     public async Task OnSheetChanged()
     {
         HeaderOptions.Clear();
         RowIndexOptions.Clear();
 
-        if (!ShouldLoadDesignTimeData() || string.IsNullOrWhiteSpace(SpreadsheetId) || string.IsNullOrWhiteSpace(SheetId))
+        if (SheetsCredentials?.Client is null ||
+            string.IsNullOrWhiteSpace(SelectedAction) ||
+            string.IsNullOrWhiteSpace(SpreadsheetId) ||
+            string.IsNullOrWhiteSpace(SheetId))
         {
             return;
         }
 
-        var sheetsClient = new GoogleSheetsClient(Credentials!);
+        var sheetsClient = new GoogleSheetsClient(SheetsCredentials!);
         var sheetName = SheetOptions.FirstOrDefault(option => option.value.ToString() == SheetId)?.name ?? SheetId;
         if (string.IsNullOrWhiteSpace(sheetName))
         {
@@ -295,8 +300,6 @@ public sealed class GoogleSheetsConnector : IAction
         EndIndex = null;
         OverwriteSheet = false;
     }
-
-    private bool ShouldLoadDesignTimeData() => Credentials?.Client is not null && !string.IsNullOrWhiteSpace(SelectedAction);
 
     private bool RequiresHeaders()
     {
