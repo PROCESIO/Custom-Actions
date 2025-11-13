@@ -83,19 +83,12 @@ public sealed class GoogleSheetsClient
             values = new List<IList<string>> { headerValues }
         };
 
-        try
-        {
-            var updateResponse = await _credentials.Client.PutAsync($"v4/spreadsheets/{spreadSheetId}/values/{Uri.EscapeDataString(range)}", updateQuery, null, updateBody);
+        var updateResponse = await _credentials.Client.PutAsync($"v4/spreadsheets/{spreadSheetId}/values/{Uri.EscapeDataString(range)}", updateQuery, null, updateBody);
 
-            if (!updateResponse.IsSuccessStatusCode)
-            {
-                var updatePayload = await updateResponse.Content.ReadAsStringAsync();
-                throw new Exception($"Failed to apply headers to the new spreadsheet. Status {(int)updateResponse.StatusCode} {updateResponse.StatusCode}");
-            }
-        }
-        catch (Exception)
+        if (!updateResponse.IsSuccessStatusCode)
         {
-            throw;
+            var updatePayload = await updateResponse.Content.ReadAsStringAsync();
+            throw new Exception($"Failed to apply headers to the new spreadsheet. Status {(int)updateResponse.StatusCode} {updateResponse.StatusCode}");
         }
     }
 
