@@ -67,18 +67,11 @@ public sealed class GoogleDriveClient
             ["removeParents"] = "root"
         };
 
-        try
+        var patchResponse = await _credentials.Client.PatchAsync($"drive/v3/files/{spreadSheetId}", driveQuery, null, null);
+        if (!patchResponse.IsSuccessStatusCode)
         {
-            var patchResponse = await _credentials.Client.PatchAsync($"drive/v3/files/{spreadSheetId}", driveQuery, null, null);
-            if (!patchResponse.IsSuccessStatusCode)
-            {
-                var patchPayload = await patchResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}.");
-            }
-        }
-        catch (Exception)
-        {
-            throw;
+            var patchPayload = await patchResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}.");
         }
     }
 

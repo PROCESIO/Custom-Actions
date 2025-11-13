@@ -158,8 +158,7 @@ public class GoogleSheetsConnector : IAction
         Response = actionType switch
         {
             GoogleSheetsActionType.CreateSpreadsheet
-                => Response = await execute.CreateSpreadsheet(SpreadsheetTitle, DriveId, Headers)
-                                           .ConfigureAwait(false),
+                => Response = await execute.CreateSpreadsheet(SpreadsheetTitle, DriveId, Headers),
             GoogleSheetsActionType.DeleteSpreadsheet => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.AppendRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.AppendOrUpdateRow => throw new Exception($"Action '{actionType}' is not implemented."),
@@ -368,6 +367,4 @@ public class GoogleSheetsConnector : IAction
             _ => action.ToString()
         };
     }
-
-    
 }
