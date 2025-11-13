@@ -55,7 +55,7 @@ public sealed class GoogleDriveClient
         return result;
     }
 
-    public async Task UpdateFileLocation(
+    public async Task UpdateFileLocationAsync(
         string driveId,
         string spreadSheetId)
     {
@@ -71,7 +71,7 @@ public sealed class GoogleDriveClient
         if (!patchResponse.IsSuccessStatusCode)
         {
             var patchPayload = await patchResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}.");
+            throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}. Content: {patchPayload}");
         }
     }
 
@@ -85,20 +85,13 @@ public sealed class GoogleDriveClient
             ["includeItemsFromAllDrives"] = "true"
         };
 
-        HttpResponseMessage deleteResponse;
-        try
-        {
-            deleteResponse = await _credentials.Client.DeleteAsync($"drive/v3/files/{fileId}", query, null);
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Google Drive delete failed: {ex.Message}");
-        }
-
+        var deleteResponse = await _credentials.Client.DeleteAsync($"drive/v3/files/{fileId}", query, null);
         if (!deleteResponse.IsSuccessStatusCode)
         {
             var payload = await deleteResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Failed to delete file '{fileId}'. Status {(int)deleteResponse.StatusCode} {deleteResponse.StatusCode}.");
+            throw new Exception($"Failed to delete file '{fileId}'. Status {(int)deleteResponse.StatusCode} {deleteResponse.StatusCode}. Content: {payload}");
+        }
+    }
 
     public async Task<IReadOnlyList<GoogleDriveFile>> ListSpreadsheetsAsync(string driveId, int pageSize = 100)
     {

@@ -61,7 +61,7 @@ internal class GoogleExecutionService
             !string.Equals(driveId, "root", StringComparison.OrdinalIgnoreCase) &&
             _drive?.Client is not null)
         {
-            await driveClient.UpdateFileLocation(driveId, spreadsheetId);
+            await driveClient.UpdateFileLocationAsync(driveId, spreadsheetId);
         }
 
         //Update the spreadsheet headers
@@ -81,22 +81,17 @@ internal class GoogleExecutionService
             throw new Exception("Spreadsheet is required.");
         }
 
-        if (_drive is null)
-        {
-            throw new Exception("Drive credentials are required.");
-        }
-
         var driveClient = new GoogleDriveClient(_drive);
         try
         {
             await driveClient.DeleteFileAsync(spreadsheetId);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new Exception($"DeleteSpreadsheetFailed  exception message : {ex.Message}");
+            return false;
         }
 
-        return new { success = true, spreadsheetId };
+        return true;
     }
 
     private List<string> ParseHeaders(string? headers)
