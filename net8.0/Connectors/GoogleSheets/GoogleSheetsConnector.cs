@@ -164,7 +164,8 @@ public class GoogleSheetsConnector : IAction
             GoogleSheetsActionType.AppendRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.AppendOrUpdateRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.ClearRange => throw new Exception($"Action '{actionType}' is not implemented."),
-            GoogleSheetsActionType.CreateSheet => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.CreateSheet
+                => Response = await execute.CreateSheet(SpreadsheetId, NewSheetTitle, OverwriteSheet, Headers),
             GoogleSheetsActionType.DeleteSheet => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.DeleteDimension => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.GetRows => throw new Exception($"Action '{actionType}' is not implemented."),

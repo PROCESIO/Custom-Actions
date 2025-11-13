@@ -94,6 +94,61 @@ internal class GoogleExecutionService
         return true;
     }
 
+    public async Task<object?> CreateSheet(
+        string? spreadsheetId,
+        string? newSheetTitle,
+        bool overwrite,
+        string? headers)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+
+        var title = newSheetTitle?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new Exception("Sheet name is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+
+        if (overwrite)
+        {
+            var existingId = await sheetsClient.GetSheetIdByTitleAsync(spreadsheetId, title);
+            if (existingId.HasValue)
+            {
+                // Avoid deleting the only sheet in a spreadsheet; Sheets API requires at least one sheet
+                var existing = await sheetsClient.GetSpreadsheetAsync(spreadsheetId);
+                var sheetsCount = existing?.Sheets?.Count ?? 0;
+                if (sheetsCount <= 1)
+                {
+                    // If only one sheet exists and overwrite is requested, we will just rename it by creating a new sheet and deleting the old after
+                    // but API disallows deleting last sheet; so skip delete here
+                }
+                else
+                {
+                    await sheetsClient.DeleteSheetAsync(spreadsheetId, existingId.Value);
+                }
+            }
+        }
+
+        var (createdSheetId, createdTitle) = await sheetsClient.AddSheetAsync(spreadsheetId, title);
+
+        var headerValues = ParseHeaders(headers);
+        if (headerValues.Count > 0)
+        {
+            await sheetsClient.UpdateHeaders(createdTitle, spreadsheetId, headerValues);
+        }
+
+        return new
+        {
+            spreadsheetId,
+            sheetId = createdSheetId,
+            title = createdTitle
+        };
+    }
+
     private List<string> ParseHeaders(string? headers)
     {
         if (string.IsNullOrWhiteSpace(headers))
