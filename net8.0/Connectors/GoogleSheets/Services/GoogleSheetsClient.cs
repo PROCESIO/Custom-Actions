@@ -51,7 +51,7 @@ public sealed class GoogleSheetsClient
         try
         {
             createResponse = await _credentials.Client.PostAsync("v4/spreadsheets",null, null, request);
-            createPayload = await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            createPayload = await createResponse.Content.ReadAsStringAsync();
         }
         catch (Exception ex)
         {
@@ -89,7 +89,7 @@ public sealed class GoogleSheetsClient
 
             if (!updateResponse.IsSuccessStatusCode)
             {
-                var updatePayload = await updateResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var updatePayload = await updateResponse.Content.ReadAsStringAsync();
                 throw new Exception($"Failed to apply headers to the new spreadsheet. Status {(int)updateResponse.StatusCode} {updateResponse.StatusCode}");
             }
         }
