@@ -158,8 +158,7 @@ public class GoogleSheetsConnector : IAction
         Response = actionType switch
         {
             GoogleSheetsActionType.CreateSpreadsheet
-                => Response = await execute.CreateSpreadsheet(SpreadsheetTitle, DriveId, Headers)
-                                           .ConfigureAwait(false),
+                => Response = await execute.CreateSpreadsheet(SpreadsheetTitle, DriveId, Headers),
             GoogleSheetsActionType.DeleteSpreadsheet
                 => Response = await execute.DeleteSpreadsheet(SpreadsheetId)
                                            .ConfigureAwait(false),
@@ -370,6 +369,4 @@ public class GoogleSheetsConnector : IAction
             _ => action.ToString()
         };
     }
-
-    
 }

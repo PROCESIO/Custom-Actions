@@ -99,8 +99,6 @@ public sealed class GoogleDriveClient
         {
             var payload = await deleteResponse.Content.ReadAsStringAsync();
             throw new Exception($"Failed to delete file '{fileId}'. Status {(int)deleteResponse.StatusCode} {deleteResponse.StatusCode}.");
-        }
-    }
 
     public async Task<IReadOnlyList<GoogleDriveFile>> ListSpreadsheetsAsync(string driveId, int pageSize = 100)
     {

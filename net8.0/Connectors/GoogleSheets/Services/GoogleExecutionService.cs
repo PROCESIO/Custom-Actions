@@ -115,7 +115,7 @@ internal class GoogleExecutionService
                 if (asJson is { Count: > 0 })
                 {
                     return asJson
-                        .Select(header => header?.Trim())
+                        .Select(header => header.Trim())
                         .Where(header => !string.IsNullOrWhiteSpace(header))
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .Select(header => header!)
