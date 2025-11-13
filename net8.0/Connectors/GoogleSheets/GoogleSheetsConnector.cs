@@ -1,10 +1,10 @@
-using GoogleSheetsAction.Models;
-using GoogleSheetsAction.Services;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
 using Ringhel.Procesio.Action.Core.Models;
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 using Ringhel.Procesio.Action.Core.Utils;
+using GoogleSheetsAction.Models;
+using GoogleSheetsAction.Services;
 
 namespace GoogleSheetsAction;
 
@@ -144,7 +144,33 @@ public class GoogleSheetsConnector : IAction
 
     public async Task Execute()
     {
-        // Runtime execution will be implemented per user story in subsequent iterations.
+        if (string.IsNullOrWhiteSpace(SelectedAction))
+        {
+            throw new Exception("An action must be selected before execution.");
+        }
+
+        if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType))
+        {
+            throw new Exception($"Unsupported action '{SelectedAction}'.");
+        }
+
+        var execute = new GoogleExecutionService(SheetsCredentials, DriveCredentials);
+        Response = actionType switch
+        {
+            GoogleSheetsActionType.CreateSpreadsheet
+                => Response = await execute.CreateSpreadsheet(SpreadsheetTitle, DriveId, Headers)
+                                           .ConfigureAwait(false),
+            GoogleSheetsActionType.DeleteSpreadsheet => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.AppendRow => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.AppendOrUpdateRow => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.ClearRange => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.CreateSheet => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.DeleteSheet => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.DeleteDimension => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.GetRows => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.UpdateRowByRange => throw new Exception($"Action '{actionType}' is not implemented."),
+            _ => throw new Exception($"Action '{actionType}' is not implemented.")
+        };
     }
 
     [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(DriveCredentials),
@@ -180,26 +206,28 @@ public class GoogleSheetsConnector : IAction
         OutputControls = [nameof(SpreadsheetId)], OutputTarget = OutputTarget.Options)]
     public async Task OnDriveChanged()
     {
-        SpreadsheetOptions.Clear();
-        SheetOptions.Clear();
-        HeaderOptions.Clear();
-        RowIndexOptions.Clear();
+        //TODO: Next iteration when we develop the delte spreadsheet
+        //SpreadsheetOptions.Clear();
+        //SheetOptions.Clear();
+        //HeaderOptions.Clear();
+        //RowIndexOptions.Clear();
 
-        if (DriveCredentials?.Client is null ||
-            string.IsNullOrWhiteSpace(DriveId))
-        {
-            return;
-        }
+        //if (DriveCredentials?.Client is null ||
+        //    string.IsNullOrWhiteSpace(DriveId))
+        //{
+        //    return;
+        //}
 
-        var driveClient = new GoogleDriveClient(DriveCredentials!);
-        var spreadsheets = await driveClient.ListSpreadsheetsAsync(DriveId);
-        foreach (var file in spreadsheets)
-        {
-            if (!string.IsNullOrWhiteSpace(file.Id))
-            {
-                SpreadsheetOptions.Add(new OptionModel { name = file.Name ?? file.Id, value = file.Id });
-            }
-        }
+        //var driveClient = new GoogleDriveClient(DriveCredentials!);
+        //var spreadsheets = await driveClient.ListSpreadsheetsAsync(DriveId);
+        //foreach (var file in spreadsheets)
+        //{
+        //    if (!string.IsNullOrWhiteSpace(file.Id))
+        //    {
+        //        SpreadsheetOptions.Add(new OptionModel { name = file.Name ?? file.Id, value = file.Id });
+        //    }
+        //}
+        return;
     }
 
     [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(SpreadsheetId),
@@ -340,4 +368,6 @@ public class GoogleSheetsConnector : IAction
             _ => action.ToString()
         };
     }
+
+    
 }

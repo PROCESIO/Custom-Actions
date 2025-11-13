@@ -9,7 +9,7 @@ public sealed class GoogleDriveClient
 {
     private readonly APICredentialsManager _credentials;
 
-    public GoogleDriveClient(APICredentialsManager credentials)
+    public GoogleDriveClient(APICredentialsManager? credentials)
     {
         _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
         if (_credentials.Client is null)
@@ -24,7 +24,7 @@ public sealed class GoogleDriveClient
         var query = new Dictionary<string, string>
         {
             ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture),
-            ["fields"] = "nextPageToken"
+            ["fields"] = "nextPageToken,drives(id,name)"
         };
 
         string? pageToken = null;
@@ -53,6 +53,33 @@ public sealed class GoogleDriveClient
         } while (!string.IsNullOrEmpty(pageToken));
 
         return result;
+    }
+
+    public async Task UpdateFileLocation(
+        string driveId,
+        string spreadSheetId)
+    {
+        var driveQuery = new Dictionary<string, string>
+        {
+            ["supportsAllDrives"] = "true",
+            ["includeItemsFromAllDrives"] = "true",
+            ["addParents"] = driveId!,
+            ["removeParents"] = "root"
+        };
+
+        try
+        {
+            var patchResponse = await _credentials.Client.PatchAsync($"drive/v3/files/{spreadSheetId}", driveQuery, null, null);
+            if (!patchResponse.IsSuccessStatusCode)
+            {
+                var patchPayload = await patchResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}.");
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<GoogleDriveFile>> ListSpreadsheetsAsync(string driveId, int pageSize = 100)

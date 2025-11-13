@@ -10,7 +10,7 @@ public sealed class GoogleSheetsClient
 {
     private readonly APICredentialsManager _credentials;
 
-    public GoogleSheetsClient(APICredentialsManager credentials)
+    public GoogleSheetsClient(APICredentialsManager? credentials)
     {
         _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
         if (_credentials.Client is null)
@@ -28,6 +28,75 @@ public sealed class GoogleSheetsClient
 
         var payload = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<GoogleSpreadsheetResponse>(payload);
+    }
+
+    public async Task<string> CreateSpreadSheetAsync(string spreadSheetTitle)
+    {
+        var title = spreadSheetTitle?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new Exception("Spreadsheet title is required.");
+        }
+
+        var request = new
+        {
+            properties = new
+            {
+                title
+            }
+        };
+
+        HttpResponseMessage createResponse;
+        string createPayload;
+        try
+        {
+            createResponse = await _credentials.Client.PostAsync("v4/spreadsheets",null, null, request);
+            createPayload = await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"CreateSpreadsheetFailed  exception message : {ex.Message}");
+        }
+
+        if (!createResponse.IsSuccessStatusCode)
+        {
+            throw new Exception($"Google Sheets API responded with status {(int)createResponse.StatusCode} {createResponse.StatusCode}.");
+        }
+
+        return createPayload;
+    }
+
+    public async Task UpdateHeaders(
+        string? defaultSheetTitle,
+        string spreadSheetId,
+        IList<string> headerValues)
+    {
+        var targetSheet = string.IsNullOrWhiteSpace(defaultSheetTitle) ? "Sheet1" : defaultSheetTitle!;
+        var range = $"{targetSheet}!1:1";
+        var updateQuery = new Dictionary<string, string>
+        {
+            ["valueInputOption"] = "RAW"
+        };
+
+        var updateBody = new
+        {
+            values = new List<IList<string>> { headerValues }
+        };
+
+        try
+        {
+            var updateResponse = await _credentials.Client.PutAsync($"v4/spreadsheets/{spreadSheetId}/values/{Uri.EscapeDataString(range)}", updateQuery, null, updateBody);
+
+            if (!updateResponse.IsSuccessStatusCode)
+            {
+                var updatePayload = await updateResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                throw new Exception($"Failed to apply headers to the new spreadsheet. Status {(int)updateResponse.StatusCode} {updateResponse.StatusCode}");
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     public async Task<GoogleSheetValueRange?> GetSheetValuesAsync(string spreadsheetId, string sheetName, string range = "A:Z")
