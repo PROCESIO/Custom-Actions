@@ -63,22 +63,42 @@ public sealed class GoogleDriveClient
         {
             ["supportsAllDrives"] = "true",
             ["includeItemsFromAllDrives"] = "true",
-            ["addParents"] = driveId!,
+            ["addParents"] = driveId,
             ["removeParents"] = "root"
         };
 
+        var patchResponse = await _credentials.Client.PatchAsync($"drive/v3/files/{spreadSheetId}", driveQuery, null, null);
+        if (!patchResponse.IsSuccessStatusCode)
+        {
+            var patchPayload = await patchResponse.Content.ReadAsStringAsync();
+            throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}.");
+        }
+    }
+
+    public async Task DeleteFileAsync(string fileId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileId);
+
+        var query = new Dictionary<string, string>
+        {
+            ["supportsAllDrives"] = "true",
+            ["includeItemsFromAllDrives"] = "true"
+        };
+
+        HttpResponseMessage deleteResponse;
         try
         {
-            var patchResponse = await _credentials.Client.PatchAsync($"drive/v3/files/{spreadSheetId}", driveQuery, null, null);
-            if (!patchResponse.IsSuccessStatusCode)
-            {
-                var patchPayload = await patchResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}.");
-            }
+            deleteResponse = await _credentials.Client.DeleteAsync($"drive/v3/files/{fileId}", query, null);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            throw;
+            throw new Exception($"Google Drive delete failed: {ex.Message}");
+        }
+
+        if (!deleteResponse.IsSuccessStatusCode)
+        {
+            var payload = await deleteResponse.Content.ReadAsStringAsync();
+            throw new Exception($"Failed to delete file '{fileId}'. Status {(int)deleteResponse.StatusCode} {deleteResponse.StatusCode}.");
         }
     }
 

@@ -74,6 +74,31 @@ internal class GoogleExecutionService
         return spreadsheetNode;
     }
 
+    public async Task<object?> DeleteSpreadsheet(string? spreadsheetId)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+
+        if (_drive is null)
+        {
+            throw new Exception("Drive credentials are required.");
+        }
+
+        var driveClient = new GoogleDriveClient(_drive);
+        try
+        {
+            await driveClient.DeleteFileAsync(spreadsheetId);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"DeleteSpreadsheetFailed  exception message : {ex.Message}");
+        }
+
+        return new { success = true, spreadsheetId };
+    }
+
     private List<string> ParseHeaders(string? headers)
     {
         if (string.IsNullOrWhiteSpace(headers))

@@ -160,7 +160,9 @@ public class GoogleSheetsConnector : IAction
             GoogleSheetsActionType.CreateSpreadsheet
                 => Response = await execute.CreateSpreadsheet(SpreadsheetTitle, DriveId, Headers)
                                            .ConfigureAwait(false),
-            GoogleSheetsActionType.DeleteSpreadsheet => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.DeleteSpreadsheet
+                => Response = await execute.DeleteSpreadsheet(SpreadsheetId)
+                                           .ConfigureAwait(false),
             GoogleSheetsActionType.AppendRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.AppendOrUpdateRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.ClearRange => throw new Exception($"Action '{actionType}' is not implemented."),
