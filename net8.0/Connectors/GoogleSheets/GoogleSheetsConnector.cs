@@ -1,17 +1,17 @@
+using GoogleSheetsAction.Models;
+using GoogleSheetsAction.Services;
 using Ringhel.Procesio.Action.Core;
 using Ringhel.Procesio.Action.Core.ActionDecorators;
 using Ringhel.Procesio.Action.Core.Models;
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 using Ringhel.Procesio.Action.Core.Utils;
-using GoogleSheetsAction.Models;
-using GoogleSheetsAction.Services;
 
 namespace GoogleSheetsAction;
 
 [ClassDecorator(Name = "Google Sheets Connector", Shape = ActionShape.Square,
     Description = "Create and manage Google Sheets from PROCESIO.",
     Classification = Classification.cat1, IsTestable = true)]
-[FEDecorator(Label = "Configuration", Type = FeComponentType.Side_pannel, RowId = 1, Tab = "Google Sheets", Parent = "Configuration")]
+[FEDecorator(Label = "Configuration", Type = FeComponentType.Side_pannel, RowId = 4, Tab = "Google Sheets", Parent = "Configuration")]
 [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
 public class GoogleSheetsConnector : IAction
 {
@@ -29,7 +29,7 @@ public class GoogleSheetsConnector : IAction
     private IList<OptionModel> HeaderOptions { get; } = new List<OptionModel>();
     private IList<OptionModel> RowIndexOptions { get; } = new List<OptionModel>();
 
-    [FEDecorator(Label = "Google Sheets Credential", Type = FeComponentType.Credentials_Rest, RowId = 1, Tab = "Google Sheets",
+    [FEDecorator(Label = "Google Sheets Credential", Type = FeComponentType.Credentials_Rest, RowId = 2, Tab = "Google Sheets",
         CustomCredentialsTypeGuid = "a65377cf-3092-4467-83e8-61b71d59cbbd")] //Google Sheets CredentialTemplate id
     [BEDecorator(IOProperty = Direction.Input)]
     [Validator(IsRequired = true)]
@@ -41,7 +41,7 @@ public class GoogleSheetsConnector : IAction
     [Validator(IsRequired = true)]
     public APICredentialsManager? DriveCredentials { get; set; }
 
-    [FEDecorator(Label = "Action", Type = FeComponentType.Select, RowId = 2, Tab = "Google Sheets",
+    [FEDecorator(Label = "Action", Type = FeComponentType.Select, RowId = 3, Tab = "Google Sheets",
         Options = nameof(ActionOptions))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [Validator(IsRequired = true)]
@@ -58,6 +58,8 @@ public class GoogleSheetsConnector : IAction
         Options = nameof(SpreadsheetOptions))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSpreadsheet))]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSheet), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = false)]
     public string? SpreadsheetId { get; set; }
@@ -66,6 +68,7 @@ public class GoogleSheetsConnector : IAction
         Options = nameof(SheetOptions))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSheet))]
     [Validator(IsRequired = false)]
     public string? SheetId { get; set; }
 
@@ -159,12 +162,15 @@ public class GoogleSheetsConnector : IAction
         {
             GoogleSheetsActionType.CreateSpreadsheet
                 => Response = await execute.CreateSpreadsheet(SpreadsheetTitle, DriveId, Headers),
-            GoogleSheetsActionType.DeleteSpreadsheet => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.DeleteSpreadsheet
+                => Response = await execute.DeleteSpreadsheet(SpreadsheetId),
+            GoogleSheetsActionType.CreateSheet
+                => Response = await execute.CreateSheet(SpreadsheetId, NewSheetTitle, OverwriteSheet, Headers),
+            GoogleSheetsActionType.DeleteSheet
+                => Response = await execute.DeleteSpread(SpreadsheetId, SheetId),
             GoogleSheetsActionType.AppendRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.AppendOrUpdateRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.ClearRange => throw new Exception($"Action '{actionType}' is not implemented."),
-            GoogleSheetsActionType.CreateSheet => throw new Exception($"Action '{actionType}' is not implemented."),
-            GoogleSheetsActionType.DeleteSheet => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.DeleteDimension => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.GetRows => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.UpdateRowByRange => throw new Exception($"Action '{actionType}' is not implemented."),
@@ -177,13 +183,7 @@ public class GoogleSheetsConnector : IAction
         OutputControls = [nameof(DriveId)], OutputTarget = OutputTarget.Options)]
     public async Task OnCredentialsChanged()
     {
-        ResetActionScopedOptions();
-        if (DriveCredentials?.Client is null)
-        {
-            return;
-        }
-
-        var driveClient = new GoogleDriveClient(DriveCredentials!);
+        var driveClient = new GoogleDriveClient(DriveCredentials);
         var drives = await driveClient.ListDrivesAsync();
         DriveOptions.Clear();
         foreach (var drive in drives)
@@ -201,50 +201,52 @@ public class GoogleSheetsConnector : IAction
     }
 
     [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(DriveId),
-        InputControls = [nameof(DriveCredentials), nameof(DriveId)],
+        InputControls = [nameof(DriveCredentials), nameof(DriveId), nameof(SelectedAction)],
         OutputControls = [nameof(SpreadsheetId)], OutputTarget = OutputTarget.Options)]
     public async Task OnDriveChanged()
     {
-        //TODO: Next iteration when we develop the delte spreadsheet
-        //SpreadsheetOptions.Clear();
-        //SheetOptions.Clear();
-        //HeaderOptions.Clear();
-        //RowIndexOptions.Clear();
-
-        //if (DriveCredentials?.Client is null ||
-        //    string.IsNullOrWhiteSpace(DriveId))
-        //{
-        //    return;
-        //}
-
-        //var driveClient = new GoogleDriveClient(DriveCredentials!);
-        //var spreadsheets = await driveClient.ListSpreadsheetsAsync(DriveId);
-        //foreach (var file in spreadsheets)
-        //{
-        //    if (!string.IsNullOrWhiteSpace(file.Id))
-        //    {
-        //        SpreadsheetOptions.Add(new OptionModel { name = file.Name ?? file.Id, value = file.Id });
-        //    }
-        //}
-        return;
-    }
-
-    [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(SpreadsheetId),
-        InputControls = [nameof(SheetsCredentials), nameof(SpreadsheetId)], OutputControls = [nameof(SheetId)], OutputTarget = OutputTarget.Options)]
-    public async Task OnSpreadsheetChanged()
-    {
-        SheetOptions.Clear();
-        HeaderOptions.Clear();
-        RowIndexOptions.Clear();
-
-        if (SheetsCredentials?.Client is null ||
-            string.IsNullOrWhiteSpace(SelectedAction) ||
-            string.IsNullOrWhiteSpace(SpreadsheetId))
+        var permittedActions = new List<GoogleSheetsActionType>()
+        {
+            GoogleSheetsActionType.DeleteSpreadsheet, GoogleSheetsActionType.CreateSheet, GoogleSheetsActionType.DeleteSheet
+        };
+        if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType) ||
+            !permittedActions.Contains(actionType))
         {
             return;
         }
 
-        var sheetsClient = new GoogleSheetsClient(SheetsCredentials!);
+        var driveClient = new GoogleDriveClient(DriveCredentials);
+        var spreadsheets = await driveClient.ListSpreadsheetsAsync(DriveId);
+        foreach (var file in spreadsheets)
+        {
+            if (!string.IsNullOrWhiteSpace(file.Id))
+            {
+                SpreadsheetOptions.Add(new OptionModel
+                {
+                    name = string.IsNullOrWhiteSpace(file.Name) ? file.Id : file.Name,
+                    value = file.Id
+                });
+            }
+        }
+    }
+
+    [ControlEventHandler(EventType = ControlEventType.OnChange, TriggerControl = nameof(SpreadsheetId),
+        InputControls = [nameof(SheetsCredentials), nameof(SpreadsheetId), nameof(SelectedAction)],
+        OutputControls = [nameof(SheetId)], OutputTarget = OutputTarget.Options)]
+    public async Task OnSpreadsheetChanged()
+    {
+        var permittedActions = new List<GoogleSheetsActionType>()
+        {
+            GoogleSheetsActionType.CreateSheet, GoogleSheetsActionType.DeleteSheet
+        };
+
+        if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType) ||
+            !permittedActions.Contains(actionType))
+        {
+            return;
+        }
+
+        var sheetsClient = new GoogleSheetsClient(SheetsCredentials);
         var spreadsheet = await sheetsClient.GetSpreadsheetAsync(SpreadsheetId);
         if (spreadsheet?.Sheets is null)
         {
@@ -269,18 +271,14 @@ public class GoogleSheetsConnector : IAction
         OutputControls = [nameof(KeyColumn), nameof(TargetRowNumber)], OutputTarget = OutputTarget.Options)]
     public async Task OnSheetChanged()
     {
-        HeaderOptions.Clear();
-        RowIndexOptions.Clear();
-
-        if (SheetsCredentials?.Client is null ||
-            string.IsNullOrWhiteSpace(SelectedAction) ||
+        if (string.IsNullOrWhiteSpace(SelectedAction) ||
             string.IsNullOrWhiteSpace(SpreadsheetId) ||
             string.IsNullOrWhiteSpace(SheetId))
         {
             return;
         }
 
-        var sheetsClient = new GoogleSheetsClient(SheetsCredentials!);
+        var sheetsClient = new GoogleSheetsClient(SheetsCredentials);
         var sheetName = SheetOptions.FirstOrDefault(option => option.value.ToString() == SheetId)?.name ?? SheetId;
         if (string.IsNullOrWhiteSpace(sheetName))
         {
@@ -304,28 +302,6 @@ public class GoogleSheetsConnector : IAction
                 RowIndexOptions.Add(row);
             }
         }
-    }
-
-    private void ResetActionScopedOptions()
-    {
-        DriveOptions.Clear();
-        SpreadsheetOptions.Clear();
-        SheetOptions.Clear();
-        HeaderOptions.Clear();
-        RowIndexOptions.Clear();
-        DriveId = null;
-        SpreadsheetId = null;
-        SheetId = null;
-        KeyColumn = null;
-        TargetRowNumber = null;
-        RowValuesJson = null;
-        Headers = null;
-        SpreadsheetTitle = null;
-        NewSheetTitle = null;
-        Range = null;
-        StartIndex = null;
-        EndIndex = null;
-        OverwriteSheet = false;
     }
 
     private bool RequiresHeaders()

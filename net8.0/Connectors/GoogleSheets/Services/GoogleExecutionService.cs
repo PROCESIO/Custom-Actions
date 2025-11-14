@@ -1,7 +1,7 @@
-﻿using Ringhel.Procesio.Action.Core.Models.Credentials.API;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 
 namespace GoogleSheetsAction.Services;
 internal class GoogleExecutionService
@@ -26,23 +26,23 @@ internal class GoogleExecutionService
         string? headers)
     {
         var sheetsClient = new GoogleSheetsClient(_sheets);
-        var createPayloadResponse = await sheetsClient.CreateSpreadSheetAsync(spreadsheetTitle!);
+        var createPayloadResponse = await sheetsClient.CreateSpreadSheetAsync(spreadsheetTitle);
 
-        //Parse the response after creating the new spreadsheet
+        // Parse the response after creating the new spreadsheet
         var spreadsheetNode = JsonNode.Parse(createPayloadResponse, new JsonNodeOptions { PropertyNameCaseInsensitive = false });
         if (spreadsheetNode is null)
         {
-            throw new Exception($"Unable to parse the Sheets API response");
+            throw new Exception("Unable to parse the Sheets API response");
         }
 
-        //Validate that the new spreadsheet has id
+        // Validate that the new spreadsheet has id
         var spreadsheetId = spreadsheetNode["spreadsheetId"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(spreadsheetId))
         {
             throw new Exception("The Sheets API response did not include a spreadsheetId.");
         }
 
-        //Get the default sheet title
+        // Get the default sheet title
         string? defaultSheetTitle = null;
         if (spreadsheetNode["sheets"] is JsonArray sheetsArray)
         {
@@ -55,23 +55,23 @@ internal class GoogleExecutionService
             }
         }
 
-        //Move the file to the right drive
+        // Move the file to the right drive
         var driveClient = new GoogleDriveClient(_drive);
         if (!string.IsNullOrWhiteSpace(driveId) &&
             !string.Equals(driveId, "root", StringComparison.OrdinalIgnoreCase) &&
             _drive?.Client is not null)
         {
-            await driveClient.UpdateFileLocation(driveId, spreadsheetId);
+            await driveClient.UpdateFileLocationAsync(driveId, spreadsheetId);
         }
 
-        //Update the spreadsheet headers
+        // Update the spreadsheet headers
         var headerValues = ParseHeaders(headers);
         if (headerValues.Count > 0)
         {
-            await sheetsClient.UpdateHeaders(defaultSheetTitle, spreadsheetId, headerValues);
+            await sheetsClient.UpdateHeadersAsync(defaultSheetTitle, spreadsheetId, headerValues);
         }
 
-        return spreadsheetNode;
+        return spreadsheetNode.ToJsonString(SerializerOptions);
     }
 
     private List<string> ParseHeaders(string? headers)
@@ -110,5 +110,89 @@ internal class GoogleExecutionService
             .Where(header => !string.IsNullOrWhiteSpace(header))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    public async Task<object?> DeleteSpreadsheet(string? spreadsheetId)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+
+        var driveClient = new GoogleDriveClient(_drive);
+        await driveClient.DeleteFileAsync(spreadsheetId);
+        return true;
+    }
+
+    public async Task<object?> CreateSheet(
+        string? spreadsheetId,
+        string? newSheetTitle,
+        bool overwrite,
+        string? headers)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+
+        var title = newSheetTitle?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new Exception("Sheet name is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+
+        if (overwrite)
+        {
+            var existingId = await sheetsClient.GetSheetIdByTitleAsync(spreadsheetId, title);
+            if (existingId.HasValue)
+            {
+                // Avoid deleting the only sheet in a spreadsheet; Sheets API requires at least one sheet
+                var existing = await sheetsClient.GetSpreadsheetAsync(spreadsheetId);
+                var sheetsCount = existing?.Sheets?.Count ?? 0;
+                if (sheetsCount <= 1)
+                {
+                    // If only one sheet exists and overwrite is requested, we will just rename it by creating a new sheet and deleting the old after
+                    // but API disallows deleting last sheet; so skip delete here
+                }
+                else
+                {
+                    await sheetsClient.DeleteSheetAsync(spreadsheetId, existingId.Value.ToString());
+                }
+            }
+        }
+
+        var (createdSheetId, createdTitle) = await sheetsClient.AddSheetAsync(spreadsheetId, title);
+
+        var headerValues = ParseHeaders(headers);
+        if (headerValues.Count > 0)
+        {
+            await sheetsClient.UpdateHeadersAsync(createdTitle, spreadsheetId, headerValues);
+        }
+
+        return new
+        {
+            spreadsheetId,
+            sheetId = createdSheetId,
+            title = createdTitle
+        };
+    }
+
+    public async Task<object?> DeleteSpread(string? spreadsheetId, string? sheetId)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        await sheetsClient.DeleteSheetAsync(spreadsheetId, sheetId);
+        return true;
     }
 }

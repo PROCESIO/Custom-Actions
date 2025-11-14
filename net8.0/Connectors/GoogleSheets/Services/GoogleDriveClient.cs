@@ -39,7 +39,7 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client!.GetAsync("drive/v3/drives", query, new());
+            var response = await _credentials.Client.GetAsync("drive/v3/drives", query, new());
             response.EnsureSuccessStatusCode();
 
             var payload = await response.Content.ReadAsStringAsync();
@@ -55,7 +55,7 @@ public sealed class GoogleDriveClient
         return result;
     }
 
-    public async Task UpdateFileLocation(
+    public async Task UpdateFileLocationAsync(
         string driveId,
         string spreadSheetId)
     {
@@ -63,7 +63,7 @@ public sealed class GoogleDriveClient
         {
             ["supportsAllDrives"] = "true",
             ["includeItemsFromAllDrives"] = "true",
-            ["addParents"] = driveId!,
+            ["addParents"] = driveId,
             ["removeParents"] = "root"
         };
 
@@ -71,11 +71,11 @@ public sealed class GoogleDriveClient
         if (!patchResponse.IsSuccessStatusCode)
         {
             var patchPayload = await patchResponse.Content.ReadAsStringAsync();
-            throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}.");
+            throw new Exception($"Failed to assign the spreadsheet to drive '{driveId}'. Status {(int)patchResponse.StatusCode} {patchResponse.StatusCode}. Content: {patchPayload}");
         }
     }
 
-    public async Task<IReadOnlyList<GoogleDriveFile>> ListSpreadsheetsAsync(string driveId, int pageSize = 100)
+    public async Task<IReadOnlyList<GoogleDriveFile>> ListSpreadsheetsAsync(string? driveId, int pageSize = 100)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(driveId);
 
@@ -83,13 +83,21 @@ public sealed class GoogleDriveClient
         var query = new Dictionary<string, string>
         {
             ["q"] = "mimeType='application/vnd.google-apps.spreadsheet'",
-            ["corpora"] = "drive",
-            ["driveId"] = driveId,
             ["includeItemsFromAllDrives"] = "true",
             ["supportsAllDrives"] = "true",
             ["fields"] = "nextPageToken,files(id,name,webViewLink)",
             ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
         };
+
+        if (driveId.Equals("root", StringComparison.OrdinalIgnoreCase))
+        {
+            query["corpora"] = "user";
+        }
+        else
+        {
+            query["corpora"] = "drive";
+            query["driveId"] = driveId;
+        }
 
         string? pageToken = null;
         do
@@ -103,7 +111,7 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client!.GetAsync("drive/v3/files", query, new());
+            var response = await _credentials.Client.GetAsync("drive/v3/files", query, new());
             response.EnsureSuccessStatusCode();
 
             var payload = await response.Content.ReadAsStringAsync();
@@ -117,5 +125,23 @@ public sealed class GoogleDriveClient
         } while (!string.IsNullOrEmpty(pageToken));
 
         return result;
+    }
+
+    public async Task DeleteFileAsync(string spreadsheetId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+
+        var query = new Dictionary<string, string>
+        {
+            ["supportsAllDrives"] = "true",
+            ["includeItemsFromAllDrives"] = "true"
+        };
+
+        var deleteResponse = await _credentials.Client.DeleteAsync($"drive/v3/files/{spreadsheetId}", query, null);
+        if (!deleteResponse.IsSuccessStatusCode)
+        {
+            var payload = await deleteResponse.Content.ReadAsStringAsync();
+            throw new Exception($"Failed to delete file '{spreadsheetId}'. Status {(int)deleteResponse.StatusCode} {deleteResponse.StatusCode}. Content: {payload}");
+        }
     }
 }
