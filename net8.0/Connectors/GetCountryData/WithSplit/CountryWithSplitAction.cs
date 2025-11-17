@@ -93,8 +93,8 @@ public class CountryWithSplitAction : IAction
         return Task.CompletedTask;
     }
 
-    [ControlEventHandler(
-        EventType = ControlEventType.OnLoad,
+    [ActionEventHandler(
+        EventType = ActionEventType.OnReady,
         OutputControls = [nameof(Region)],
         OutputTarget = OutputTarget.Options)]
     public async Task InitRegions()
@@ -103,8 +103,8 @@ public class CountryWithSplitAction : IAction
         RegionList = Commons.BuildRegions(all);
     }
 
-    [ControlEventHandler(
-        EventType = ControlEventType.OnLoad,
+    [ActionEventHandler(
+        EventType = ActionEventType.OnReady,
         OutputControls = [nameof(GlobalStats)],
         OutputTarget = OutputTarget.Value)]
     public async Task InitStats()

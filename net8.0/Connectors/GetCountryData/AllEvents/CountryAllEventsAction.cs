@@ -106,12 +106,12 @@ public class CountryAllEventsAction : IAction
         return Task.CompletedTask;
     }
 
-    [ControlEventHandler(
-        EventType = ControlEventType.OnLoad,
+    [ActionEventHandler(
+        EventType = ActionEventType.OnReady,
         OutputControls = [nameof(Region)],
         OutputTarget = OutputTarget.Options)]
-    [ControlEventHandler(
-        EventType = ControlEventType.OnLoad,
+    [ActionEventHandler(
+        EventType = ActionEventType.OnReady,
         OutputControls = [nameof(GlobalStats)],
         OutputTarget = OutputTarget.Value)]
     public async Task InitializeData()

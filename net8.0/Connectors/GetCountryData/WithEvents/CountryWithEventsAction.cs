@@ -102,12 +102,12 @@ public class CountryWithEventsAction : IAction
         CurrencyInfo = await Commons.BuildCurrencyInfo(Country, Currency);
     }
 
-    [ControlEventHandler(
-        EventType = ControlEventType.OnLoad,
+    [ActionEventHandler(
+        EventType = ActionEventType.OnReady,
         OutputControls = [nameof(Region)],
         OutputTarget = OutputTarget.Options)]
-    [ControlEventHandler(
-        EventType = ControlEventType.OnLoad,
+    [ActionEventHandler(
+        EventType = ActionEventType.OnReady,
         OutputControls = [nameof(GlobalStats)],
         OutputTarget = OutputTarget.Value)]
     public async Task InitializeData()
