@@ -195,4 +195,69 @@ internal class GoogleExecutionService
         await sheetsClient.DeleteSheetAsync(spreadsheetId, sheetId);
         return true;
     }
+
+    public async Task<object?> AppendRow(
+        string? spreadsheetId,
+        string? sheetId,
+        string? rowValuesJson)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(rowValuesJson))
+        {
+            throw new Exception("Row Values are required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+
+        // Resolve sheet title from numeric id
+        var spreadsheet = await sheetsClient.GetSpreadsheetAsync(spreadsheetId);
+        var sheetTitle = spreadsheet?.Sheets?
+            .FirstOrDefault(s => s.Properties != null && s.Properties.SheetId.ToString() == sheetId)?
+            .Properties?.Title;
+        if (string.IsNullOrWhiteSpace(sheetTitle))
+        {
+            throw new Exception($"Could not resolve sheet title for id '{sheetId}'.");
+        }
+
+        Dictionary<string, string?>? inputMap;
+        try
+        {
+            inputMap = JsonSerializer.Deserialize<Dictionary<string, string?>>(rowValuesJson, SerializerOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new Exception($"Invalid Row Values JSON. {ex.Message}");
+        }
+
+        if (inputMap is null || inputMap.Count == 0)
+        {
+            throw new Exception("Row Values JSON must contain at least one key-value pair.");
+        }
+
+        var headerOptions = await sheetsClient.BuildHeaderOptionsAsync(spreadsheetId, sheetTitle);
+        var headers = headerOptions.Select(o => o.name).ToList();
+        if (headers.Count == 0)
+        {
+            // If there are no headers, append in the order of the provided keys
+            var valuesNoHeaders = inputMap.Values.Select(v => v ?? string.Empty).ToList();
+            var payloadNoHeaders = await sheetsClient.AppendRowAsync(spreadsheetId, sheetTitle, valuesNoHeaders);
+            return JsonNode.Parse(payloadNoHeaders)?.ToJsonString(SerializerOptions) ?? payloadNoHeaders;
+        }
+
+        var orderedValues = headers
+            .Select(h => inputMap.TryGetValue(h, out var v)
+                ? v ?? string.Empty
+                : string.Empty)
+            .ToList();
+
+        var payload = await sheetsClient.AppendRowAsync(spreadsheetId, sheetTitle, orderedValues);
+        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+    }
 }

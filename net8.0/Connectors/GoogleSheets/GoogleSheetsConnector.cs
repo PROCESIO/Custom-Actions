@@ -168,7 +168,8 @@ public class GoogleSheetsConnector : IAction
                 => Response = await execute.CreateSheet(SpreadsheetId, NewSheetTitle, OverwriteSheet, Headers),
             GoogleSheetsActionType.DeleteSheet
                 => Response = await execute.DeleteSpread(SpreadsheetId, SheetId),
-            GoogleSheetsActionType.AppendRow => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.AppendRow
+                => Response = await execute.AppendRow(SpreadsheetId, SheetId, RowValuesJson),
             GoogleSheetsActionType.AppendOrUpdateRow => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.ClearRange => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.DeleteDimension => throw new Exception($"Action '{actionType}' is not implemented."),

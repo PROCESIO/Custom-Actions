@@ -123,7 +123,9 @@ public sealed class GoogleSheetsClient
         return result;
     }
 
-    public async Task<IReadOnlyList<OptionModel>> BuildHeaderOptionsAsync(string spreadsheetId, string sheetName)
+    public async Task<IReadOnlyList<OptionModel>> BuildHeaderOptionsAsync(
+        string spreadsheetId,
+        string sheetName)
     {
         var values = await GetSheetValuesAsync(spreadsheetId, sheetName, "1:1");
         var result = new List<OptionModel>();
@@ -227,5 +229,37 @@ public sealed class GoogleSheetsClient
             var payload = await response.Content.ReadAsStringAsync();
             throw new Exception($"Failed to delete sheet '{sheetId}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
         }
+    }
+
+    public async Task<string> AppendRowAsync(string spreadsheetId, string sheetName, IList<string> values, string valueInputOption = "RAW")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
+        if (values is null)
+        {
+            throw new ArgumentNullException(nameof(values));
+        }
+
+        // Use a wide column range to ensure all values fit; the API will append to the next available row
+        var range = $"{sheetName}!A:ZZ";
+        var query = new Dictionary<string, string>
+        {
+            ["valueInputOption"] = string.IsNullOrWhiteSpace(valueInputOption) ? "RAW" : valueInputOption,
+            ["insertDataOption"] = "INSERT_ROWS"
+        };
+
+        var body = new
+        {
+            values = new List<IList<string>> { values }
+        };
+
+        var response = await _credentials.Client.PostAsync($"v4/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}:append", query, null, body);
+        var payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to append row. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
+        return payload;
     }
 }
