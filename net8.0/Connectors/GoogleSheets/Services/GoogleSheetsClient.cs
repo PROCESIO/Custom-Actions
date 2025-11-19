@@ -231,7 +231,11 @@ public sealed class GoogleSheetsClient
         }
     }
 
-    public async Task<string> AppendRowAsync(string spreadsheetId, string sheetName, IList<string> values, string valueInputOption = "RAW")
+    public async Task<string> AppendRowAsync(
+        string? spreadsheetId,
+        string? sheetName,
+        IList<string>? values,
+        string? valueInputOption = "RAW")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
@@ -258,6 +262,46 @@ public sealed class GoogleSheetsClient
         if (!response.IsSuccessStatusCode)
         {
             throw new Exception($"Failed to append row. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
+        return payload;
+    }
+
+    public async Task<string> UpdateRowAsync(
+        string? spreadsheetId,
+        string? sheetName,
+        int rowNumber,
+        IList<string>? values,
+        string? valueInputOption = "RAW")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
+        if (values is null)
+        {
+            throw new ArgumentNullException(nameof(values));
+        }
+        if (rowNumber < 1)
+        {
+            throw new ArgumentException("Row number must be greater than 0.", nameof(rowNumber));
+        }
+
+        // Build range for the specific row (e.g., "Sheet1!A2:Z2" for row 2)
+        var range = $"{sheetName}!A{rowNumber}:ZZ{rowNumber}";
+        var query = new Dictionary<string, string>
+        {
+            ["valueInputOption"] = string.IsNullOrWhiteSpace(valueInputOption) ? "RAW" : valueInputOption
+        };
+
+        var body = new
+        {
+            values = new List<IList<string>> { values }
+        };
+
+        var response = await _credentials.Client.PutAsync($"v4/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}", query, null, body);
+        var payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to update row {rowNumber}. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
         }
 
         return payload;

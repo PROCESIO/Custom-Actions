@@ -60,6 +60,8 @@ public class GoogleSheetsConnector : IAction
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSpreadsheet))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSheet), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendRow), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendOrUpdateRow), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = false)]
     public string? SpreadsheetId { get; set; }
@@ -69,6 +71,8 @@ public class GoogleSheetsConnector : IAction
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSheet))]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendRow), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendOrUpdateRow), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public string? SheetId { get; set; }
 
@@ -170,7 +174,8 @@ public class GoogleSheetsConnector : IAction
                 => Response = await execute.DeleteSpread(SpreadsheetId, SheetId),
             GoogleSheetsActionType.AppendRow
                 => Response = await execute.AppendRow(SpreadsheetId, SheetId, RowValuesJson),
-            GoogleSheetsActionType.AppendOrUpdateRow => throw new Exception($"Action '{actionType}' is not implemented."),
+            GoogleSheetsActionType.AppendOrUpdateRow 
+                => Response = await execute.AppendOrUpdateRow(SpreadsheetId, SheetId, KeyColumn, RowValuesJson),
             GoogleSheetsActionType.ClearRange => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.DeleteDimension => throw new Exception($"Action '{actionType}' is not implemented."),
             GoogleSheetsActionType.GetRows => throw new Exception($"Action '{actionType}' is not implemented."),
@@ -208,7 +213,11 @@ public class GoogleSheetsConnector : IAction
     {
         var permittedActions = new List<GoogleSheetsActionType>()
         {
-            GoogleSheetsActionType.DeleteSpreadsheet, GoogleSheetsActionType.CreateSheet, GoogleSheetsActionType.DeleteSheet
+            GoogleSheetsActionType.DeleteSpreadsheet,
+            GoogleSheetsActionType.CreateSheet,
+            GoogleSheetsActionType.DeleteSheet,
+            GoogleSheetsActionType.AppendRow,
+            GoogleSheetsActionType.AppendOrUpdateRow
         };
         if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType) ||
             !permittedActions.Contains(actionType))
@@ -238,7 +247,10 @@ public class GoogleSheetsConnector : IAction
     {
         var permittedActions = new List<GoogleSheetsActionType>()
         {
-            GoogleSheetsActionType.CreateSheet, GoogleSheetsActionType.DeleteSheet
+            GoogleSheetsActionType.CreateSheet,
+            GoogleSheetsActionType.DeleteSheet,
+            GoogleSheetsActionType.AppendRow,
+            GoogleSheetsActionType.AppendOrUpdateRow
         };
 
         if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType) ||

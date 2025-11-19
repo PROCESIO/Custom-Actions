@@ -215,17 +215,87 @@ internal class GoogleExecutionService
         }
 
         var sheetsClient = new GoogleSheetsClient(_sheets);
+        var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
+        var inputMap = ParseRowValuesJson(rowValuesJson);
+        var (headers, orderedValues) = await PrepareRowValuesAsync(sheetsClient, spreadsheetId, sheetTitle, inputMap);
 
-        // Resolve sheet title from numeric id
+        var payload = await sheetsClient.AppendRowAsync(spreadsheetId, sheetTitle, orderedValues);
+        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+    }
+
+    public async Task<object?> AppendOrUpdateRow(
+        string? spreadsheetId,
+        string? sheetId,
+        string? keyColumn,
+        string? rowValuesJson)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(keyColumn))
+        {
+            throw new Exception("Key Column is required.");
+        }
+        if (string.IsNullOrWhiteSpace(rowValuesJson))
+        {
+            throw new Exception("Row Values are required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
+        var inputMap = ParseRowValuesJson(rowValuesJson);
+        var (headers, orderedValues) = await PrepareRowValuesAsync(sheetsClient, spreadsheetId, sheetTitle, inputMap);
+
+        // Validate key column and get key value
+        if (!inputMap.TryGetValue(keyColumn, out var keyValue))
+        {
+            throw new Exception($"Row Values must include a value for the key column '{keyColumn}'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(keyValue))
+        {
+            throw new Exception($"Key column '{keyColumn}' value cannot be empty.");
+        }
+
+        // Find matching row
+        var matchingRowNumber = await FindMatchingRowAsync(sheetsClient, spreadsheetId, sheetTitle, headers, keyColumn, keyValue);
+
+        if (matchingRowNumber.HasValue)
+        {
+            // Update existing row
+            var payload = await sheetsClient.UpdateRowAsync(spreadsheetId, sheetTitle, matchingRowNumber.Value, orderedValues);
+            return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+        }
+        else
+        {
+            // Append new row
+            var payload = await sheetsClient.AppendRowAsync(spreadsheetId, sheetTitle, orderedValues);
+            return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+        }
+    }
+
+    private async Task<string> ResolveSheetTitleAsync(GoogleSheetsClient sheetsClient, string spreadsheetId, string sheetId)
+    {
         var spreadsheet = await sheetsClient.GetSpreadsheetAsync(spreadsheetId);
         var sheetTitle = spreadsheet?.Sheets?
             .FirstOrDefault(s => s.Properties != null && s.Properties.SheetId.ToString() == sheetId)?
             .Properties?.Title;
+        
         if (string.IsNullOrWhiteSpace(sheetTitle))
         {
             throw new Exception($"Could not resolve sheet title for id '{sheetId}'.");
         }
 
+        return sheetTitle;
+    }
+
+    private Dictionary<string, string?> ParseRowValuesJson(string rowValuesJson)
+    {
         Dictionary<string, string?>? inputMap;
         try
         {
@@ -241,23 +311,84 @@ internal class GoogleExecutionService
             throw new Exception("Row Values JSON must contain at least one key-value pair.");
         }
 
+        return inputMap;
+    }
+
+    private async Task<(List<string> Headers, List<string> OrderedValues)> PrepareRowValuesAsync(
+        GoogleSheetsClient sheetsClient,
+        string spreadsheetId,
+        string sheetTitle,
+        Dictionary<string, string?> inputMap)
+    {
         var headerOptions = await sheetsClient.BuildHeaderOptionsAsync(spreadsheetId, sheetTitle);
         var headers = headerOptions.Select(o => o.name).ToList();
+
         if (headers.Count == 0)
         {
-            // If there are no headers, append in the order of the provided keys
+            // If there are no headers, use values in the order provided
             var valuesNoHeaders = inputMap.Values.Select(v => v ?? string.Empty).ToList();
-            var payloadNoHeaders = await sheetsClient.AppendRowAsync(spreadsheetId, sheetTitle, valuesNoHeaders);
-            return JsonNode.Parse(payloadNoHeaders)?.ToJsonString(SerializerOptions) ?? payloadNoHeaders;
+            return (headers, valuesNoHeaders);
         }
 
+        // Order values based on headers
         var orderedValues = headers
             .Select(h => inputMap.TryGetValue(h, out var v)
                 ? v ?? string.Empty
                 : string.Empty)
             .ToList();
 
-        var payload = await sheetsClient.AppendRowAsync(spreadsheetId, sheetTitle, orderedValues);
-        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+        return (headers, orderedValues);
+    }
+
+    private async Task<int?> FindMatchingRowAsync(
+        GoogleSheetsClient sheetsClient,
+        string spreadsheetId,
+        string sheetTitle,
+        List<string> headers,
+        string keyColumn,
+        string keyValue)
+    {
+        var sheetData = await sheetsClient.GetSheetValuesAsync(spreadsheetId, sheetTitle, "A:Z");
+        
+        if (sheetData?.Values == null || sheetData.Values.Count == 0)
+        {
+            return null;
+        }
+
+        if (headers.Count == 0)
+        {
+            // No headers: use first column as key
+            for (int i = 0; i < sheetData.Values.Count; i++)
+            {
+                var row = sheetData.Values[i];
+                if (row.Count > 0 && 
+                    string.Equals(row[0], keyValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i + 1; // Return 1-based row number
+                }
+            }
+        }
+        else
+        {
+            // With headers: find key column index
+            var keyColumnIndex = headers.IndexOf(keyColumn);
+            if (keyColumnIndex < 0)
+            {
+                throw new Exception($"Key column '{keyColumn}' not found in sheet headers.");
+            }
+
+            // Skip header row (index 0), check data rows
+            for (int i = 1; i < sheetData.Values.Count; i++)
+            {
+                var row = sheetData.Values[i];
+                if (keyColumnIndex < row.Count && 
+                    string.Equals(row[keyColumnIndex], keyValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i + 1; // Return 1-based row number
+                }
+            }
+        }
+
+        return null;
     }
 }
