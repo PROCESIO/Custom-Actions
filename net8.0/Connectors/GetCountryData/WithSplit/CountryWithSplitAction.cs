@@ -13,11 +13,6 @@ namespace WithSplit;
 [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
 public class CountryWithSplitAction : IAction
 {
-    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 1, Tab = "Geo")]
-    [BEDecorator(IOProperty = Direction.Output)]
-    [Validator(IsRequired = false)]
-    public object? GlobalStats { get; set; }
-
     [FEDecorator(Label = "Region", Type = FeComponentType.Select, RowId = 2, Tab = "Geo",
         Options = nameof(RegionList))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
@@ -49,7 +44,6 @@ public class CountryWithSplitAction : IAction
 
     [FEDecorator(Label = "Refresh", Type = FeComponentType.Button, RowId = 6, Tab = "Geo")]
     [BEDecorator(IOProperty = Direction.Input)]
-    [DependencyDecorator(Tab = "Geo", Control = nameof(GlobalStats), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = false)]
     public bool Refresh { get; set; }
@@ -103,33 +97,11 @@ public class CountryWithSplitAction : IAction
         RegionList = Commons.BuildRegions(all);
     }
 
-    [ActionEventHandler(
-        EventType = ActionEventType.OnReady,
-        OutputControls = [nameof(GlobalStats)],
-        OutputTarget = OutputTarget.Value)]
-    public async Task InitStats()
-    {
-        var all = await Commons.FetchAllCountries();
-        GlobalStats = Commons.BuildGlobalStats(all);
-    }
-
-    [ControlEventHandler(
-        EventType = ControlEventType.OnClick,
-        TriggerControl = nameof(Refresh),
-        OutputControls = [nameof(GlobalStats)],
-        OutputTarget = OutputTarget.Value,
-        Order = 0)]
-    public async Task RefreshStats()
-    {
-        await InitStats();
-    }
-
     [ControlEventHandler(
         EventType = ControlEventType.OnClick,
         TriggerControl = nameof(Refresh),
         OutputControls = [nameof(Region)],
-        OutputTarget = OutputTarget.Options,
-        Order = 1)]
+        OutputTarget = OutputTarget.Options)]
     public async Task RefreshRegions()
     {
         await InitRegions();

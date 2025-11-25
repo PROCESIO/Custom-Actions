@@ -8,12 +8,13 @@ public static class Commons
 {
     // ISO 3166-1 alpha-3 country code key (e.g., USA, FRA, DEU)
     public const string Cca3Key = "cca3";
+    public const string AllPath = "/all?fields=cca3,name,region,subregion,population,capital,timezones,currencies";
 
     // Fetch using plain HttpClient
     public static async Task<JArray> FetchAllCountries()
     {
         var httpClient = new HttpClient();
-        var response = await httpClient.GetAsync("https://restcountries.com/v3.1/all");
+        var response = await httpClient.GetAsync("https://restcountries.com/v3.1" + AllPath);
         if (!response.IsSuccessStatusCode())
         {
             throw new Exception($"Failed to fetch countries. Status: {response.StatusCode}");
@@ -27,7 +28,7 @@ public static class Commons
     {
         Validations.ValidateCredentials(credentials);
         // baseUrl "https://restcountries.com/v3.1" to be set in the credentials
-        var response = await credentials!.Client.GetAsync("/all", new(), new());
+        var response = await credentials!.Client.GetAsync(AllPath, new(), new());
         if (!response.IsSuccessStatusCode())
         {
             throw new Exception($"Failed to fetch countries. Status: {response.StatusCode}");
@@ -88,7 +89,7 @@ public static class Commons
         foreach (var prop in currencies.Properties())
         {
             var code = prop.Name; // e.g., "USD", "EUR"
-            var label = prop.Value?["name"]?.ToString() ?? code; // e.g., "United States dollar"
+            var label = prop.Value["name"]?.ToString() ?? code; // e.g., "United States dollar"
             list.Add(new OptionModel { name = label, value = code });
         }
         return list;

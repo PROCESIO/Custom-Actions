@@ -15,27 +15,37 @@ public class CountryAllEventsAction : IAction
 {
     #region Properties
 
-    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 1, Tab = "Geo",
-        Tooltip = "Aggregated statistics over all countries (computed on load or refresh).")]
-    [BEDecorator(IOProperty = Direction.Output)]
-    [Validator(IsRequired = false)]
-    public object? GlobalStats { get; set; }
-
-    [FEDecorator(Label = "Region", Type = FeComponentType.Select, RowId = 2, Tab = "Geo",
-        Options = nameof(RegionList), Tooltip = "Select a geographic region (e.g., Europe, Asia).")]
+    [FEDecorator(Label = "Region", Type = FeComponentType.Select, RowId = 1, Tab = "Geo",
+        Options = nameof(RegionList), Tooltip = "Select a geographic region (e.g., Europe, Asia).",
+        ColumnId = 1, ColumnSize = 9)]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [Validator(IsRequired = true)]
     public string? Region { get; set; }
     private IList<OptionModel> RegionList { get; set; } = new List<OptionModel>();
 
-    [FEDecorator(Label = "Country Codes File", Type = FeComponentType.File, RowId = 3, Tab = "Geo",
+    [FEDecorator(Label = "↻", Type = FeComponentType.Button, RowId = 1, Tab = "Geo",
+        Tooltip = "Press to re-run initialization (OnLoad logic) without recreating the action instance.",
+        ColumnId = 2, ColumnSize = 3)]
+    [BEDecorator(IOProperty = Direction.Input)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
+    public bool Refresh { get; set; }
+
+    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 3, Tab = "Geo",
+        Tooltip = "Aggregated statistics over all countries (computed on load or refresh).")]
+    [BEDecorator(IOProperty = Direction.Output)]
+    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
+    [Validator(IsRequired = false)]
+    public object? GlobalStats { get; set; }
+
+    [FEDecorator(Label = "Country Codes File", Type = FeComponentType.File, RowId = 4, Tab = "Geo",
         Tooltip = "Optional file (CSV or JSON array) listing ISO alpha-3 country codes to restrict the Country list.")]
     [BEDecorator(IOProperty = Direction.Input)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = false)]
     public FileModel? CountryCodesFile { get; set; }
 
-    [FEDecorator(Label = "Country", Type = FeComponentType.Select, RowId = 4, Tab = "Geo",
+    [FEDecorator(Label = "Country", Type = FeComponentType.Select, RowId = 5, Tab = "Geo",
         Options = nameof(CountryList), Tooltip = "Select a country. Filtered by Region and/or uploaded codes.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
@@ -43,21 +53,13 @@ public class CountryAllEventsAction : IAction
     public string? Country { get; set; }
     private IList<OptionModel> CountryList { get; set; } = new List<OptionModel>();
 
-    [FEDecorator(Label = "Currency", Type = FeComponentType.Select, RowId = 5, Tab = "Geo",
+    [FEDecorator(Label = "Currency", Type = FeComponentType.Select, RowId = 6, Tab = "Geo",
         Options = nameof(CurrencyList), Tooltip = "Currencies of the selected country.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Country), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = true)]
     public string? Currency { get; set; }
     private IList<OptionModel> CurrencyList { get; set; } = new List<OptionModel>();
-
-    [FEDecorator(Label = "Refresh", Type = FeComponentType.Button, RowId = 6, Tab = "Geo",
-        Tooltip = "Press to re-run initialization (OnLoad logic) without recreating the action instance.")]
-    [BEDecorator(IOProperty = Direction.Input)]
-    [DependencyDecorator(Tab = "Geo", Control = nameof(GlobalStats), Operator = Operator.NotEquals, Value = null)]
-    [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
-    [Validator(IsRequired = false)]
-    public bool Refresh { get; set; }
 
     [FEDecorator(Label = "Region Info", Type = FeComponentType.DataType, RowId = 7, Tab = "Geo",
         Tooltip = "Summary information for the selected region.")]
@@ -110,22 +112,12 @@ public class CountryAllEventsAction : IAction
         EventType = ActionEventType.OnReady,
         OutputControls = [nameof(Region)],
         OutputTarget = OutputTarget.Options)]
-    [ActionEventHandler(
-        EventType = ActionEventType.OnReady,
-        OutputControls = [nameof(GlobalStats)],
-        OutputTarget = OutputTarget.Value)]
     public async Task InitializeData()
     {
         var all = await Commons.FetchAllCountries();
         RegionList = Commons.BuildRegions(all);
-        GlobalStats = Commons.BuildGlobalStats(all);
     }
 
-    [ControlEventHandler(
-        EventType = ControlEventType.OnClick,
-        TriggerControl = nameof(Refresh),
-        OutputControls = [nameof(GlobalStats)],
-        OutputTarget = OutputTarget.Value)]
     [ControlEventHandler(
         EventType = ControlEventType.OnClick,
         TriggerControl = nameof(Refresh),
@@ -146,13 +138,14 @@ public class CountryAllEventsAction : IAction
         EventType = ControlEventType.OnChange,
         TriggerControl = nameof(Region),
         InputControls = [nameof(Region)],
-        OutputControls = [nameof(RegionInfo)],
+        OutputControls = [nameof(RegionInfo), nameof(GlobalStats)],
         OutputTarget = OutputTarget.Value)]
     public async Task OnRegionChange()
     {
         Validations.ValidateRegion(Region);
         var all = await Commons.FetchAllCountries();
         var regionCountries = Commons.FilterByRegion(all, Region);
+        GlobalStats = Commons.BuildGlobalStats(all);
         CountryList = Commons.BuildCountryOptions(regionCountries);
         RegionInfo = Commons.BuildRegionInfo(regionCountries, Region);
     }

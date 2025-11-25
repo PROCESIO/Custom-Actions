@@ -13,12 +13,6 @@ namespace WithEvents;
 [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
 public class CountryWithEventsAction : IAction
 {
-    [FEDecorator(Label = "Global Stats", Type = FeComponentType.DataType, RowId = 1, Tab = "Geo",
-        Tooltip = "Aggregated statistics over all countries (computed on load or refresh).")]
-    [BEDecorator(IOProperty = Direction.Output)]
-    [Validator(IsRequired = false)]
-    public object? GlobalStats { get; set; }
-
     [FEDecorator(Label = "Region", Type = FeComponentType.Select, RowId = 2, Tab = "Geo",
         Options = nameof(RegionList), Tooltip = "Select a geographic region (e.g., Europe, Asia).")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
@@ -52,7 +46,6 @@ public class CountryWithEventsAction : IAction
     [FEDecorator(Label = "Refresh", Type = FeComponentType.Button, RowId = 6, Tab = "Geo",
         Tooltip = "Press to re-run initialization (OnLoad logic) without recreating the action instance.")]
     [BEDecorator(IOProperty = Direction.Input)]
-    [DependencyDecorator(Tab = "Geo", Control = nameof(GlobalStats), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Geo", Control = nameof(Region), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = false)]
     public bool Refresh { get; set; }
@@ -106,22 +99,12 @@ public class CountryWithEventsAction : IAction
         EventType = ActionEventType.OnReady,
         OutputControls = [nameof(Region)],
         OutputTarget = OutputTarget.Options)]
-    [ActionEventHandler(
-        EventType = ActionEventType.OnReady,
-        OutputControls = [nameof(GlobalStats)],
-        OutputTarget = OutputTarget.Value)]
     public async Task InitializeData()
     {
         var all = await Commons.FetchAllCountries();
         RegionList = Commons.BuildRegions(all);
-        GlobalStats = Commons.BuildGlobalStats(all);
     }
 
-    [ControlEventHandler(
-        EventType = ControlEventType.OnClick,
-        TriggerControl = nameof(Refresh),
-        OutputControls = [nameof(GlobalStats)],
-        OutputTarget = OutputTarget.Value)]
     [ControlEventHandler(
         EventType = ControlEventType.OnClick,
         TriggerControl = nameof(Refresh),
