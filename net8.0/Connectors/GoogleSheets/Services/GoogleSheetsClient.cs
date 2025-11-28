@@ -8,6 +8,45 @@ namespace GoogleSheetsAction.Services;
 
 public sealed class GoogleSheetsClient
 {
+    #region constants
+    /// <summary>
+    /// API version for Google Sheets API.
+    /// </summary>
+    public const string ApiVersion = "v4";
+
+    /// <summary>
+    /// Default column range for reading/writing sheet data.
+    /// A:ZZ covers 702 columns, which is sufficient for most use cases.
+    /// </summary>
+    public const string DefaultColumnRange = "A:ZZ";
+
+    /// <summary>
+    /// Range for reading header row (first row).
+    /// </summary>
+    public const string HeaderRowRange = "1:1";
+
+    /// <summary>
+    /// Represents the query parameter name used to specify the value input option in a request.
+    /// </summary>
+    public const string ValueInputOptionQuery = "valueInputOption";
+
+    /// <summary>
+    /// Represents the query parameter name used to specify the insert data option in a request.
+    /// </summary>
+    public const string InsertDataOptionQuery = "insertDataOption";
+
+    /// <summary>
+    /// Value input option that allows Google Sheets to parse data intelligently.
+    /// USER_ENTERED means numbers, dates, and formulas are interpreted as if typed by a user.
+    /// </summary>
+    public const string UserEnteredValueInputOption = "USER_ENTERED";
+
+    /// <summary>
+    /// Insert data option for appending rows.
+    /// </summary>
+    public const string InsertRowsOption = "INSERT_ROWS";
+    #endregion
+
     private readonly APICredentialsManager _credentials;
 
     public GoogleSheetsClient(APICredentialsManager? credentials)
@@ -23,7 +62,8 @@ public sealed class GoogleSheetsClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
 
-        var response = await _credentials.Client.GetAsync($"v4/spreadsheets/{spreadsheetId}", new(), new());
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}";
+        var response = await _credentials.Client.GetAsync(endpoint, null, null);
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadAsStringAsync();
@@ -33,10 +73,7 @@ public sealed class GoogleSheetsClient
     public async Task<string> CreateSpreadSheetAsync(string? spreadSheetTitle)
     {
         var title = spreadSheetTitle?.Trim();
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            throw new Exception("Spreadsheet title is required.");
-        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
         var request = new
         {
@@ -50,7 +87,8 @@ public sealed class GoogleSheetsClient
         string createPayload;
         try
         {
-            createResponse = await _credentials.Client.PostAsync("v4/spreadsheets", null, null, request);
+            var endpoint = $"{ApiVersion}/spreadsheets";
+            createResponse = await _credentials.Client.PostAsync(endpoint, null, null, request);
             createPayload = await createResponse.Content.ReadAsStringAsync();
         }
         catch (Exception ex)
@@ -68,14 +106,17 @@ public sealed class GoogleSheetsClient
 
     public async Task UpdateHeadersAsync(
         string? defaultSheetTitle,
-        string spreadSheetId,
-        IList<string> headerValues)
+        string? spreadsheetId,
+        IList<string>? headerValues)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentNullException.ThrowIfNull(headerValues);
+
         var targetSheet = string.IsNullOrWhiteSpace(defaultSheetTitle) ? "Sheet1" : defaultSheetTitle;
-        var range = $"{targetSheet}!1:1";
+        var range = $"{targetSheet}!{HeaderRowRange}";
         var updateQuery = new Dictionary<string, string>
         {
-            ["valueInputOption"] = "RAW"
+            [ValueInputOptionQuery] = UserEnteredValueInputOption
         };
 
         var updateBody = new
@@ -83,7 +124,8 @@ public sealed class GoogleSheetsClient
             values = new List<IList<string>> { headerValues }
         };
 
-        var updateResponse = await _credentials.Client.PutAsync($"v4/spreadsheets/{spreadSheetId}/values/{Uri.EscapeDataString(range)}", updateQuery, null, updateBody);
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}";
+        var updateResponse = await _credentials.Client.PutAsync(endpoint, updateQuery, null, updateBody);
 
         if (!updateResponse.IsSuccessStatusCode)
         {
@@ -92,13 +134,15 @@ public sealed class GoogleSheetsClient
         }
     }
 
-    public async Task<GoogleSheetValueRange?> GetSheetValuesAsync(string? spreadsheetId, string? sheetName, string range = "A:Z")
+    public async Task<GoogleSheetValueRange?> GetSheetValuesAsync(string? spreadsheetId, string? sheetName, string? range = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
 
-        var relativeRange = string.IsNullOrEmpty(range) ? sheetName : $"{sheetName}!{range}";
-        var response = await _credentials.Client.GetAsync($"v4/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}", new(), new());
+        var effectiveRange = range ?? DefaultColumnRange;
+        var relativeRange = string.IsNullOrEmpty(effectiveRange) ? sheetName : $"{sheetName}!{effectiveRange}";
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}";
+        var response = await _credentials.Client.GetAsync(endpoint, null, null);
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadAsStringAsync();
@@ -107,7 +151,7 @@ public sealed class GoogleSheetsClient
 
     public async Task<IReadOnlyList<OptionModel>> BuildRowNumberOptionsAsync(string spreadsheetId, string sheetName)
     {
-        var values = await GetSheetValuesAsync(spreadsheetId, sheetName, "A:Z");
+        var values = await GetSheetValuesAsync(spreadsheetId, sheetName, DefaultColumnRange);
         var result = new List<OptionModel>();
         if (values?.Values is null)
         {
@@ -127,7 +171,7 @@ public sealed class GoogleSheetsClient
         string spreadsheetId,
         string sheetName)
     {
-        var values = await GetSheetValuesAsync(spreadsheetId, sheetName, "1:1");
+        var values = await GetSheetValuesAsync(spreadsheetId, sheetName, HeaderRowRange);
         var result = new List<OptionModel>();
         if (values?.Values is null || values.Values.Count == 0)
         {
@@ -171,7 +215,8 @@ public sealed class GoogleSheetsClient
             }
         };
 
-        var response = await _credentials.Client.PostAsync($"v4/spreadsheets/{spreadsheetId}:batchUpdate", null, null, body);
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}:batchUpdate";
+        var response = await _credentials.Client.PostAsync(endpoint, null, null, body);
         var payload = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
@@ -223,7 +268,8 @@ public sealed class GoogleSheetsClient
             }
         };
 
-        var response = await _credentials.Client.PostAsync($"v4/spreadsheets/{spreadsheetId}:batchUpdate", null, null, body);
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}:batchUpdate";
+        var response = await _credentials.Client.PostAsync(endpoint, null, null, body);
         if (!response.IsSuccessStatusCode)
         {
             var payload = await response.Content.ReadAsStringAsync();
@@ -235,21 +281,22 @@ public sealed class GoogleSheetsClient
         string? spreadsheetId,
         string? sheetName,
         IList<string>? values,
-        string? valueInputOption = "RAW")
+        string? valueInputOption = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
+
         if (values is null)
         {
             throw new ArgumentNullException(nameof(values));
         }
 
         // Use a wide column range to ensure all values fit; the API will append to the next available row
-        var range = $"{sheetName}!A:ZZ";
+        var range = $"{sheetName}!{DefaultColumnRange}";
         var query = new Dictionary<string, string>
         {
-            ["valueInputOption"] = string.IsNullOrWhiteSpace(valueInputOption) ? "RAW" : valueInputOption,
-            ["insertDataOption"] = "INSERT_ROWS"
+            [ValueInputOptionQuery] = valueInputOption ?? UserEnteredValueInputOption,
+            [InsertDataOptionQuery] = InsertRowsOption
         };
 
         var body = new
@@ -257,7 +304,8 @@ public sealed class GoogleSheetsClient
             values = new List<IList<string>> { values }
         };
 
-        var response = await _credentials.Client.PostAsync($"v4/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}:append", query, null, body);
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}:append";
+        var response = await _credentials.Client.PostAsync(endpoint, query, null, body);
         var payload = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
@@ -272,7 +320,7 @@ public sealed class GoogleSheetsClient
         string? sheetName,
         int rowNumber,
         IList<string>? values,
-        string? valueInputOption = "RAW")
+        string? valueInputOption = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
@@ -285,11 +333,11 @@ public sealed class GoogleSheetsClient
             throw new ArgumentException("Row number must be greater than 0.", nameof(rowNumber));
         }
 
-        // Build range for the specific row (e.g., "Sheet1!A2:Z2" for row 2)
+        // Build range for the specific row (e.g., "Sheet1!A2:ZZ2" for row 2)
         var range = $"{sheetName}!A{rowNumber}:ZZ{rowNumber}";
         var query = new Dictionary<string, string>
         {
-            ["valueInputOption"] = string.IsNullOrWhiteSpace(valueInputOption) ? "RAW" : valueInputOption
+            [ValueInputOptionQuery] = valueInputOption ?? UserEnteredValueInputOption
         };
 
         var body = new
@@ -297,11 +345,229 @@ public sealed class GoogleSheetsClient
             values = new List<IList<string>> { values }
         };
 
-        var response = await _credentials.Client.PutAsync($"v4/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}", query, null, body);
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}";
+        var response = await _credentials.Client.PutAsync(endpoint, query, null, body);
         var payload = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
             throw new Exception($"Failed to update row {rowNumber}. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
+        return payload;
+    }
+
+    public async Task<string> ClearRangeAsync(
+        string? spreadsheetId,
+        string? sheetName,
+        string? range = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
+
+        // If no range is provided, clear the entire sheet using a wide range
+        var effectiveRange = range ?? DefaultColumnRange;
+        var relativeRange = $"{sheetName}!{effectiveRange}";
+
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}:clear";
+        var response = await _credentials.Client.PostAsync(endpoint, null, null, new { });
+
+        var payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to clear range '{relativeRange}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
+        return payload;
+    }
+
+    public async Task<string> DeleteDimensionAsync(
+        string? spreadsheetId,
+        string? sheetId,
+        string? dimension,
+        int? startIndex,
+        int? endIndex)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(dimension);
+        
+        if (!int.TryParse(sheetId, out var sheetIdInt))
+        {
+            throw new ArgumentException("SheetId must be a valid integer.", nameof(sheetId));
+        }
+
+        if (!startIndex.HasValue)
+        {
+            throw new ArgumentException("Start index is required.", nameof(startIndex));
+        }
+
+        // Validate dimension is either ROWS or COLUMNS
+        if (!dimension.Equals("ROWS", StringComparison.OrdinalIgnoreCase) &&
+            !dimension.Equals("COLUMNS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Dimension must be either 'ROWS' or 'COLUMNS'.", nameof(dimension));
+        }
+
+        var body = new
+        {
+            requests = new object[]
+            {
+                new
+                {
+                    deleteDimension = new
+                    {
+                        range = new
+                        {
+                            sheetId = sheetIdInt,
+                            dimension = dimension.ToUpperInvariant(),
+                            startIndex = startIndex.Value,
+                            endIndex = endIndex
+                        }
+                    }
+                }
+            }
+        };
+
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}:batchUpdate";
+        var response = await _credentials.Client.PostAsync(endpoint, null, null, body);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to delete dimension. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
+        return payload;
+    }
+
+    public async Task<string> GetRowsAsync(
+        string? spreadsheetId,
+        string? sheetName,
+        string? range = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
+
+        var effectiveRange = range ?? DefaultColumnRange;
+        var relativeRange = $"{sheetName}!{effectiveRange}";
+
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}";
+        var response = await _credentials.Client.GetAsync(endpoint, null, null);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to get rows from range '{relativeRange}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
+        return payload;
+    }
+
+    public async Task<string> UpdateRowByRangeAsync(
+        string? spreadsheetId,
+        string? sheetName,
+        string? rowNumber,
+        IList<string>? values,
+        string? valueInputOption = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(rowNumber);
+        
+        if (values is null)
+        {
+            throw new ArgumentNullException(nameof(values));
+        }
+
+        if (!int.TryParse(rowNumber, out var rowNum) || rowNum < 1)
+        {
+            throw new ArgumentException("Row number must be a positive integer.", nameof(rowNumber));
+        }
+
+        // Build range for the specific row (e.g., "Sheet1!A2:ZZ2" for row 2)
+        var range = $"{sheetName}!A{rowNum}:ZZ{rowNum}";
+        var query = new Dictionary<string, string>
+        {
+            [ValueInputOptionQuery] = valueInputOption ?? UserEnteredValueInputOption
+        };
+
+        var body = new
+        {
+            values = new List<IList<string>> { values }
+        };
+
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(range)}";
+        var response = await _credentials.Client.PutAsync(endpoint, query, null, body);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to update row {rowNum}. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
+        return payload;
+    }
+
+    public async Task RenameSheetAsync(string spreadsheetId, int sheetId, string newTitle)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newTitle);
+
+        var body = new
+        {
+            requests = new object[]
+            {
+                new
+                {
+                    updateSheetProperties = new
+                    {
+                        properties = new
+                        {
+                            sheetId = sheetId,
+                            title = newTitle
+                        },
+                        fields = "title"
+                    }
+                }
+            }
+        };
+
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}:batchUpdate";
+        var response = await _credentials.Client.PostAsync(endpoint, null, null, body);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var payload = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Failed to rename sheet '{sheetId}' to '{newTitle}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+    }
+
+    /// <summary>
+    /// Executes multiple requests in a single batch operation for better performance.
+    /// Use this to combine operations like rename + delete to reduce API calls.
+    /// </summary>
+    /// <param name="spreadsheetId">The spreadsheet ID</param>
+    /// <param name="requests">Array of request objects to execute</param>
+    /// <returns>The raw JSON response from the API</returns>
+    public async Task<string> BatchUpdateAsync(string spreadsheetId, IEnumerable<object>? requests)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
+
+        var requestsList = requests?.ToList() ?? throw new ArgumentNullException(nameof(requests));
+        if (requestsList.Count == 0)
+        {
+            throw new ArgumentException("At least one request must be provided.", nameof(requests));
+        }
+
+        var body = new { requests = requestsList };
+
+        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}:batchUpdate";
+        var response = await _credentials.Client.PostAsync(endpoint, null, null, body);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Batch update failed. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
         }
 
         return payload;

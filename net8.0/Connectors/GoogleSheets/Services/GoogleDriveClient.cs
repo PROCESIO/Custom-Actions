@@ -7,6 +7,28 @@ namespace GoogleSheetsAction.Services;
 
 public sealed class GoogleDriveClient
 {
+    #region constants
+    /// <summary>
+    /// API version for Google Drive API.
+    /// </summary>
+    public const string ApiVersion = "v3";
+
+    /// <summary>
+    /// Special drive ID representing the user's personal "My Drive".
+    /// </summary>
+    public const string RootDriveId = "root";
+
+    /// <summary>
+    /// Represents the query parameter to indicate support for all drives.
+    /// </summary>
+    public const string SupportsAllDrivesQuery = "supportsAllDrives";
+
+    /// <summary>
+    /// Represents the query parameter to include items from all drives.
+    /// </summary>
+    public const string IncludeItemsFromAllDrivesQuery = "includeItemsFromAllDrives";
+    #endregion
+
     private readonly APICredentialsManager _credentials;
 
     public GoogleDriveClient(APICredentialsManager? credentials)
@@ -39,7 +61,8 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client.GetAsync("drive/v3/drives", query, new());
+            var endpoint = $"drive/{ApiVersion}/drives";
+            var response = await _credentials.Client.GetAsync(endpoint, query, null);
             response.EnsureSuccessStatusCode();
 
             var payload = await response.Content.ReadAsStringAsync();
@@ -56,18 +79,22 @@ public sealed class GoogleDriveClient
     }
 
     public async Task UpdateFileLocationAsync(
-        string driveId,
-        string spreadSheetId)
+        string? driveId,
+        string? spreadSheetId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(driveId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadSheetId);
+
         var driveQuery = new Dictionary<string, string>
         {
-            ["supportsAllDrives"] = "true",
-            ["includeItemsFromAllDrives"] = "true",
+            [SupportsAllDrivesQuery] = "true",
+            [IncludeItemsFromAllDrivesQuery] = "true",
             ["addParents"] = driveId,
-            ["removeParents"] = "root"
+            ["removeParents"] = RootDriveId
         };
 
-        var patchResponse = await _credentials.Client.PatchAsync($"drive/v3/files/{spreadSheetId}", driveQuery, null, null);
+        var endpoint = $"drive/{ApiVersion}/files/{spreadSheetId}";
+        var patchResponse = await _credentials.Client.PatchAsync(endpoint, driveQuery, null, null);
         if (!patchResponse.IsSuccessStatusCode)
         {
             var patchPayload = await patchResponse.Content.ReadAsStringAsync();
@@ -83,13 +110,13 @@ public sealed class GoogleDriveClient
         var query = new Dictionary<string, string>
         {
             ["q"] = "mimeType='application/vnd.google-apps.spreadsheet'",
-            ["includeItemsFromAllDrives"] = "true",
-            ["supportsAllDrives"] = "true",
+            [IncludeItemsFromAllDrivesQuery] = "true",
+            [SupportsAllDrivesQuery] = "true",
             ["fields"] = "nextPageToken,files(id,name,webViewLink)",
             ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
         };
 
-        if (driveId.Equals("root", StringComparison.OrdinalIgnoreCase))
+        if (driveId.Equals(RootDriveId, StringComparison.OrdinalIgnoreCase))
         {
             query["corpora"] = "user";
         }
@@ -111,7 +138,8 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client.GetAsync("drive/v3/files", query, new());
+            var endpoint = $"drive/{ApiVersion}/files";
+            var response = await _credentials.Client.GetAsync(endpoint, query, null);
             response.EnsureSuccessStatusCode();
 
             var payload = await response.Content.ReadAsStringAsync();
@@ -133,11 +161,12 @@ public sealed class GoogleDriveClient
 
         var query = new Dictionary<string, string>
         {
-            ["supportsAllDrives"] = "true",
-            ["includeItemsFromAllDrives"] = "true"
+            [SupportsAllDrivesQuery] = "true",
+            [IncludeItemsFromAllDrivesQuery] = "true"
         };
 
-        var deleteResponse = await _credentials.Client.DeleteAsync($"drive/v3/files/{spreadsheetId}", query, null);
+        var endpoint = $"drive/{ApiVersion}/files/{spreadsheetId}";
+        var deleteResponse = await _credentials.Client.DeleteAsync(endpoint, query, null);
         if (!deleteResponse.IsSuccessStatusCode)
         {
             var payload = await deleteResponse.Content.ReadAsStringAsync();

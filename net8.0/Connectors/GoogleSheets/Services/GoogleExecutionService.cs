@@ -23,7 +23,7 @@ internal class GoogleExecutionService
     public async Task<object?> CreateSpreadsheet(
         string? spreadsheetTitle,
         string? driveId,
-        string? headers)
+        List<string>? headers)
     {
         var sheetsClient = new GoogleSheetsClient(_sheets);
         var createPayloadResponse = await sheetsClient.CreateSpreadSheetAsync(spreadsheetTitle);
@@ -65,7 +65,7 @@ internal class GoogleExecutionService
         }
 
         // Update the spreadsheet headers
-        var headerValues = ParseHeaders(headers);
+        var headerValues = CleanHeaders(headers);
         if (headerValues.Count > 0)
         {
             await sheetsClient.UpdateHeadersAsync(defaultSheetTitle, spreadsheetId, headerValues);
@@ -74,42 +74,18 @@ internal class GoogleExecutionService
         return spreadsheetNode.ToJsonString(SerializerOptions);
     }
 
-    private List<string> ParseHeaders(string? headers)
+    /// <summary>
+    /// Cleans and deduplicates a list of header strings.
+    /// Trims whitespace and removes duplicate headers (case-insensitive).
+    /// </summary>
+    private static List<string> CleanHeaders(List<string>? headers)
     {
-        if (string.IsNullOrWhiteSpace(headers))
-        {
-            return new List<string>();
-        }
-
-        var trimmed = headers.Trim();
-        try
-        {
-            if (trimmed.StartsWith("[", StringComparison.Ordinal) && trimmed.EndsWith("]", StringComparison.Ordinal))
-            {
-                var asJson = JsonSerializer.Deserialize<List<string>>(trimmed, SerializerOptions);
-                if (asJson is { Count: > 0 })
-                {
-                    return asJson
-                        .Select(header => header.Trim())
-                        .Where(header => !string.IsNullOrWhiteSpace(header))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .Select(header => header!)
-                        .ToList();
-                }
-            }
-        }
-        catch (JsonException)
-        {
-            // Ignore JSON parsing failures and fall back to delimiter-based parsing.
-        }
-
-        var separators = new[] { ',', ';', '\n', '\r', '\t' };
-        return headers
-            .Split(separators, StringSplitOptions.RemoveEmptyEntries)
-            .Select(header => header.Trim())
-            .Where(header => !string.IsNullOrWhiteSpace(header))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return headers?
+            .Where(h => !string.IsNullOrWhiteSpace(h))
+            .Select(h => h.Trim())
+            .GroupBy(h => h, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList() ?? new();
     }
 
     public async Task<object?> DeleteSpreadsheet(string? spreadsheetId)
@@ -128,7 +104,7 @@ internal class GoogleExecutionService
         string? spreadsheetId,
         string? newSheetTitle,
         bool overwrite,
-        string? headers)
+        List<string>? headers)
     {
         if (string.IsNullOrWhiteSpace(spreadsheetId))
         {
@@ -148,27 +124,110 @@ internal class GoogleExecutionService
             var existingId = await sheetsClient.GetSheetIdByTitleAsync(spreadsheetId, title);
             if (existingId.HasValue)
             {
-                // Avoid deleting the only sheet in a spreadsheet; Sheets API requires at least one sheet
+                // Get spreadsheet to check sheet count and properties
                 var existing = await sheetsClient.GetSpreadsheetAsync(spreadsheetId);
                 var sheetsCount = existing?.Sheets?.Count ?? 0;
+
                 if (sheetsCount <= 1)
                 {
-                    // If only one sheet exists and overwrite is requested, we will just rename it by creating a new sheet and deleting the old after
-                    // but API disallows deleting last sheet; so skip delete here
+                    // Only one sheet exists - need to decide strategy based on sheet size
+                    var existingSheet = existing?.Sheets?.FirstOrDefault(s => s.Properties?.SheetId == existingId.Value);
+                    var rowCount = existingSheet?.Properties?.GridProperties?.RowCount ?? 0;
+
+                    // Performance threshold: sheets larger than this will use create-rename-delete strategy
+                    const int clearPerformanceThreshold = 10_000;
+
+                    if (rowCount > clearPerformanceThreshold)
+                    {
+                        // STRATEGY 1: CREATE-RENAME-DELETE (Optimized for large sheets)
+                        // This is faster for large sheets as it avoids clearing millions of cells
+                        
+                        // Step 1: Create temporary sheet
+                        var tempName = $"{title}_temp_{Guid.NewGuid():N}";
+                        var (newSheetId, _) = await sheetsClient.AddSheetAsync(spreadsheetId, tempName);
+
+                        // Step 2: Apply headers to new sheet if provided
+                        var headerValues = CleanHeaders(headers);
+                        if (headerValues.Count > 0)
+                        {
+                            await sheetsClient.UpdateHeadersAsync(tempName, spreadsheetId, headerValues);
+                        }
+
+                        // Step 3: Batch rename new sheet and delete old sheet in a single API call
+                        var batchRequests = new List<object>
+                        {
+                            new
+                            {
+                                updateSheetProperties = new
+                                {
+                                    properties = new
+                                    {
+                                        sheetId = newSheetId,
+                                        title
+                                    },
+                                    fields = "title"
+                                }
+                            },
+                            new
+                            {
+                                deleteSheet = new
+                                {
+                                    sheetId = existingId.Value
+                                }
+                            }
+                        };
+
+                        await sheetsClient.BatchUpdateAsync(spreadsheetId, batchRequests);
+
+                        return new
+                        {
+                            spreadsheetId,
+                            sheetId = newSheetId,
+                            title,
+                            strategy = "create-rename-delete",
+                            message = $"Existing sheet was replaced with a new one (optimized for large sheets with {rowCount:N0} rows)"
+                        };
+                    }
+                    else
+                    {
+                        // STRATEGY 2: CLEAR & REUSE (Preserves sheet ID for small sheets)
+                        // This is better for small sheets as it maintains external references
+                        
+                        // Clear all data from the sheet
+                        await sheetsClient.ClearRangeAsync(spreadsheetId, title);
+
+                        // Apply headers if provided
+                        var headerValues = CleanHeaders(headers);
+                        if (headerValues.Count > 0)
+                        {
+                            await sheetsClient.UpdateHeadersAsync(title, spreadsheetId, headerValues);
+                        }
+
+                        return new
+                        {
+                            spreadsheetId,
+                            sheetId = existingId.Value,
+                            title,
+                            strategy = "clear-and-reuse",
+                            message = "Existing sheet was cleared and reused (preserves sheet ID for external references)"
+                        };
+                    }
                 }
                 else
                 {
+                    // Multiple sheets exist: safe to delete the old one
                     await sheetsClient.DeleteSheetAsync(spreadsheetId, existingId.Value.ToString());
                 }
             }
         }
 
+        // Create new sheet (either no existing sheet found, or it was deleted)
         var (createdSheetId, createdTitle) = await sheetsClient.AddSheetAsync(spreadsheetId, title);
 
-        var headerValues = ParseHeaders(headers);
-        if (headerValues.Count > 0)
+        var newHeaderValues = CleanHeaders(headers);
+        if (newHeaderValues.Count > 0)
         {
-            await sheetsClient.UpdateHeadersAsync(createdTitle, spreadsheetId, headerValues);
+            await sheetsClient.UpdateHeadersAsync(createdTitle, spreadsheetId, newHeaderValues);
         }
 
         return new
@@ -179,7 +238,7 @@ internal class GoogleExecutionService
         };
     }
 
-    public async Task<object?> DeleteSpread(string? spreadsheetId, string? sheetId)
+    public async Task<object?> DeleteSheet(string? spreadsheetId, string? sheetId)
     {
         if (string.IsNullOrWhiteSpace(spreadsheetId))
         {
@@ -279,6 +338,109 @@ internal class GoogleExecutionService
         }
     }
 
+    public async Task<object?> ClearRange(
+        string? spreadsheetId,
+        string? sheetId,
+        string? range)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
+
+        var payload = await sheetsClient.ClearRangeAsync(spreadsheetId, sheetTitle, range);
+        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+    }
+
+    public async Task<object?> DeleteDimension(
+        string? spreadsheetId,
+        string? sheetId,
+        string? dimension,
+        int? startIndex,
+        int? endIndex)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(dimension))
+        {
+            throw new Exception("Direction (dimension) is required.");
+        }
+        if (!startIndex.HasValue)
+        {
+            throw new Exception("Start index is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var payload = await sheetsClient.DeleteDimensionAsync(spreadsheetId, sheetId, dimension, startIndex, endIndex);
+        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+    }
+
+    public async Task<object?> GetRows(
+        string? spreadsheetId,
+        string? sheetId,
+        string? range)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
+
+        var payload = await sheetsClient.GetRowsAsync(spreadsheetId, sheetTitle, range);
+        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+    }
+
+    public async Task<object?> UpdateRowByRange(
+        string? spreadsheetId,
+        string? sheetId,
+        string? rowNumber,
+        string? rowValuesJson)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(rowNumber))
+        {
+            throw new Exception("Row Number is required.");
+        }
+        if (string.IsNullOrWhiteSpace(rowValuesJson))
+        {
+            throw new Exception("Row Values are required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
+        var inputMap = ParseRowValuesJson(rowValuesJson);
+        var (headers, orderedValues) = await PrepareRowValuesAsync(sheetsClient, spreadsheetId, sheetTitle, inputMap);
+
+        var payload = await sheetsClient.UpdateRowByRangeAsync(spreadsheetId, sheetTitle, rowNumber, orderedValues);
+        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+    }
+
     private async Task<string> ResolveSheetTitleAsync(GoogleSheetsClient sheetsClient, string spreadsheetId, string sheetId)
     {
         var spreadsheet = await sheetsClient.GetSpreadsheetAsync(spreadsheetId);
@@ -348,8 +510,8 @@ internal class GoogleExecutionService
         string keyColumn,
         string keyValue)
     {
-        var sheetData = await sheetsClient.GetSheetValuesAsync(spreadsheetId, sheetTitle, "A:Z");
-        
+        var sheetData = await sheetsClient.GetSheetValuesAsync(spreadsheetId, sheetTitle);
+
         if (sheetData?.Values == null || sheetData.Values.Count == 0)
         {
             return null;
@@ -361,8 +523,11 @@ internal class GoogleExecutionService
             for (int i = 0; i < sheetData.Values.Count; i++)
             {
                 var row = sheetData.Values[i];
+                // Case-sensitive comparison to ensure data integrity.
+                // Example: "ID-001" and "id-001" should be treated as different values,
+                // as many systems use case-sensitive identifiers (SKUs, order IDs, etc.)
                 if (row.Count > 0 && 
-                    string.Equals(row[0], keyValue, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(row[0], keyValue, StringComparison.Ordinal))
                 {
                     return i + 1; // Return 1-based row number
                 }
@@ -381,8 +546,11 @@ internal class GoogleExecutionService
             for (int i = 1; i < sheetData.Values.Count; i++)
             {
                 var row = sheetData.Values[i];
+                // Case-sensitive comparison to ensure data integrity.
+                // Example: "ID-001" and "id-001" should be treated as different values,
+                // as many systems use case-sensitive identifiers (SKUs, order IDs, etc.)
                 if (keyColumnIndex < row.Count && 
-                    string.Equals(row[keyColumnIndex], keyValue, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(row[keyColumnIndex], keyValue, StringComparison.Ordinal))
                 {
                     return i + 1; // Return 1-based row number
                 }
