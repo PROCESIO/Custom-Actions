@@ -1,6 +1,8 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using GoogleSheetsAction.Models;
+using Ringhel.Procesio.Action.Core.Models;
 using Ringhel.Procesio.Action.Core.Models.Credentials.API;
 
 namespace GoogleSheetsAction.Services;
@@ -19,6 +21,114 @@ internal class GoogleExecutionService
         _sheets = sheets;
         _drive = drive;
     }
+
+    #region Design-Time Helper Methods
+
+    /// <summary>
+    /// Gets available Google Drives for the authenticated user.
+    /// Used by event handlers to populate Drive dropdown options.
+    /// </summary>
+    public async Task<IReadOnlyList<GoogleDriveItem>> GetDrives()
+    {
+        var driveClient = new GoogleDriveClient(_drive);
+        return await driveClient.ListDrivesAsync();
+    }
+
+    /// <summary>
+    /// Gets spreadsheets from a specific drive.
+    /// Used by event handlers to populate Spreadsheet dropdown options.
+    /// </summary>
+    public async Task<IReadOnlyList<GoogleDriveFile>> GetSpreadsheets(string? driveId)
+    {
+        if (string.IsNullOrWhiteSpace(driveId))
+        {
+            throw new Exception("Drive is required.");
+        }
+
+        var driveClient = new GoogleDriveClient(_drive);
+        return await driveClient.ListSpreadsheetsAsync(driveId);
+    }
+
+    /// <summary>
+    /// Gets sheets (tabs) within a spreadsheet.
+    /// Used by event handlers to populate Sheet dropdown options.
+    /// </summary>
+    public async Task<IReadOnlyList<OptionModel>> GetSheets(string? spreadsheetId)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var spreadsheet = await sheetsClient.GetSpreadsheetAsync(spreadsheetId);
+
+        if (spreadsheet?.Sheets is null)
+        {
+            return new List<OptionModel>();
+        }
+
+        var result = new List<OptionModel>();
+        foreach (var sheet in spreadsheet.Sheets)
+        {
+            if (sheet.Properties is { } properties)
+            {
+                result.Add(new OptionModel
+                {
+                    name = string.IsNullOrWhiteSpace(properties.Title) 
+                        ? properties.SheetId.ToString()
+                        : properties.Title,
+                    value = properties.SheetId.ToString()
+                });
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gets header column options from a sheet.
+    /// Used by event handlers to populate Key Column and other header-based dropdowns.
+    /// </summary>
+    public async Task<IReadOnlyList<OptionModel>> GetSheetHeaders(string? spreadsheetId, string? sheetId)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
+        return await sheetsClient.BuildHeaderOptionsAsync(spreadsheetId, sheetTitle);
+    }
+
+    /// <summary>
+    /// Gets row number options from a sheet.
+    /// Used by event handlers to populate Row Number dropdown for UpdateRowByRange action.
+    /// </summary>
+    public async Task<IReadOnlyList<OptionModel>> GetRowNumbers(string? spreadsheetId, string? sheetId)
+    {
+        if (string.IsNullOrWhiteSpace(spreadsheetId))
+        {
+            throw new Exception("Spreadsheet is required.");
+        }
+        if (string.IsNullOrWhiteSpace(sheetId))
+        {
+            throw new Exception("Sheet is required.");
+        }
+
+        var sheetsClient = new GoogleSheetsClient(_sheets);
+        var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
+        return await sheetsClient.BuildRowNumberOptionsAsync(spreadsheetId, sheetTitle);
+    }
+
+    #endregion
+
+    #region Runtime Execution Methods
 
     public async Task<object?> CreateSpreadsheet(
         string? spreadsheetTitle,
@@ -447,7 +557,7 @@ internal class GoogleExecutionService
         var sheetTitle = spreadsheet?.Sheets?
             .FirstOrDefault(s => s.Properties != null && s.Properties.SheetId.ToString() == sheetId)?
             .Properties?.Title;
-        
+
         if (string.IsNullOrWhiteSpace(sheetTitle))
         {
             throw new Exception($"Could not resolve sheet title for id '{sheetId}'.");
@@ -559,4 +669,6 @@ internal class GoogleExecutionService
 
         return null;
     }
+
+    #endregion
 }

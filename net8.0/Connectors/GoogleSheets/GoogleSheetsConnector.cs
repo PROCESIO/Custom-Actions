@@ -216,8 +216,8 @@ public class GoogleSheetsConnector : IAction
         OutputControls = [nameof(DriveId)], OutputTarget = OutputTarget.Options)]
     public async Task OnCredentialsChanged()
     {
-        var driveClient = new GoogleDriveClient(DriveCredentials);
-        var drives = await driveClient.ListDrivesAsync();
+        var executionService = new GoogleExecutionService(SheetsCredentials, DriveCredentials);
+        var drives = await executionService.GetDrives();
 
         foreach (var drive in drives)
         {
@@ -257,8 +257,8 @@ public class GoogleSheetsConnector : IAction
             return;
         }
 
-        var driveClient = new GoogleDriveClient(DriveCredentials);
-        var spreadsheets = await driveClient.ListSpreadsheetsAsync(DriveId);
+        var executionService = new GoogleExecutionService(SheetsCredentials, DriveCredentials);
+        var spreadsheets = await executionService.GetSpreadsheets(DriveId);
 
         foreach (var file in spreadsheets)
         {
@@ -296,24 +296,12 @@ public class GoogleSheetsConnector : IAction
             return;
         }
 
-        var sheetsClient = new GoogleSheetsClient(SheetsCredentials);
-        var spreadsheet = await sheetsClient.GetSpreadsheetAsync(SpreadsheetId);
+        var executionService = new GoogleExecutionService(SheetsCredentials, DriveCredentials);
+        var sheets = await executionService.GetSheets(SpreadsheetId);
 
-        if (spreadsheet?.Sheets is null)
+        foreach (var sheet in sheets)
         {
-            return;
-        }
-
-        foreach (var sheet in spreadsheet.Sheets)
-        {
-            if (sheet.Properties is { } properties)
-            {
-                SheetOptions.Add(new OptionModel
-                {
-                    name = string.IsNullOrWhiteSpace(properties.Title) ? properties.SheetId.ToString() : properties.Title,
-                    value = properties.SheetId.ToString()
-                });
-            }
+            SheetOptions.Add(sheet);
         }
     }
 
@@ -322,7 +310,6 @@ public class GoogleSheetsConnector : IAction
         OutputControls = [nameof(KeyColumn), nameof(TargetRowNumber)], OutputTarget = OutputTarget.Options)]
     public async Task OnSheetChanged()
     {
-        // Only process actions that require headers or row selection
         var permittedActions = new List<GoogleSheetsActionType>()
         {
             GoogleSheetsActionType.AppendRow,
@@ -336,34 +323,17 @@ public class GoogleSheetsConnector : IAction
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(SpreadsheetId) || string.IsNullOrWhiteSpace(SheetId))
-        {
-            return;
-        }
+        var executionService = new GoogleExecutionService(SheetsCredentials, DriveCredentials);
 
-        var sheetsClient = new GoogleSheetsClient(SheetsCredentials);
-
-        // Get spreadsheet to resolve sheet title from sheetId
-        var spreadsheet = await sheetsClient.GetSpreadsheetAsync(SpreadsheetId);
-        var sheet = spreadsheet?.Sheets?.FirstOrDefault(s => s.Properties?.SheetId.ToString() == SheetId);
-        var sheetName = sheet?.Properties?.Title;
-
-        if (string.IsNullOrWhiteSpace(sheetName))
-        {
-            return;
-        }
-
-        // All permitted actions need headers for column mapping
-        var headers = await sheetsClient.BuildHeaderOptionsAsync(SpreadsheetId, sheetName);
+        var headers = await executionService.GetSheetHeaders(SpreadsheetId, SheetId);
         foreach (var header in headers)
         {
             HeaderOptions.Add(header);
         }
 
-        // Only UpdateRowByRange needs row numbers
         if (actionType is GoogleSheetsActionType.UpdateRowByRange)
         {
-            var rows = await sheetsClient.BuildRowNumberOptionsAsync(SpreadsheetId, sheetName);
+            var rows = await executionService.GetRowNumbers(SpreadsheetId, SheetId);
             foreach (var row in rows)
             {
                 RowIndexOptions.Add(row);

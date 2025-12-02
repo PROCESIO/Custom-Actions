@@ -51,11 +51,15 @@ public sealed class GoogleSheetsClient
 
     public GoogleSheetsClient(APICredentialsManager? credentials)
     {
-        _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
-        if (_credentials.Client is null)
+        if (credentials is null)
+        {
+            throw new ArgumentException("Google Sheets credentials are required.", nameof(credentials));
+        }
+        if (credentials.Client is null)
         {
             throw new ArgumentException("Credentials client is not configured.", nameof(credentials));
         }
+        _credentials = credentials;
     }
 
     public async Task<GoogleSpreadsheetResponse?> GetSpreadsheetAsync(string? spreadsheetId)
@@ -64,9 +68,13 @@ public sealed class GoogleSheetsClient
 
         var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}";
         var response = await _credentials.Client.GetAsync(endpoint, null, null);
-        response.EnsureSuccessStatusCode();
-
         var payload = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to get spreadsheet '{spreadsheetId}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
         return JsonSerializer.Deserialize<GoogleSpreadsheetResponse>(payload);
     }
 
@@ -143,13 +151,17 @@ public sealed class GoogleSheetsClient
         var relativeRange = string.IsNullOrEmpty(effectiveRange) ? sheetName : $"{sheetName}!{effectiveRange}";
         var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}";
         var response = await _credentials.Client.GetAsync(endpoint, null, null);
-        response.EnsureSuccessStatusCode();
-
         var payload = await response.Content.ReadAsStringAsync();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to get values from range '{relativeRange}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+        }
+
         return JsonSerializer.Deserialize<GoogleSheetValueRange>(payload);
     }
 
-    public async Task<IReadOnlyList<OptionModel>> BuildRowNumberOptionsAsync(string spreadsheetId, string sheetName)
+    public async Task<IReadOnlyList<OptionModel>> BuildRowNumberOptionsAsync(string? spreadsheetId, string? sheetName)
     {
         var values = await GetSheetValuesAsync(spreadsheetId, sheetName, DefaultColumnRange);
         var result = new List<OptionModel>();
@@ -168,8 +180,8 @@ public sealed class GoogleSheetsClient
     }
 
     public async Task<IReadOnlyList<OptionModel>> BuildHeaderOptionsAsync(
-        string spreadsheetId,
-        string sheetName)
+        string? spreadsheetId,
+        string? sheetName)
     {
         var values = await GetSheetValuesAsync(spreadsheetId, sheetName, HeaderRowRange);
         var result = new List<OptionModel>();

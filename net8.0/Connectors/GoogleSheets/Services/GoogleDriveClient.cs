@@ -33,11 +33,15 @@ public sealed class GoogleDriveClient
 
     public GoogleDriveClient(APICredentialsManager? credentials)
     {
-        _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
-        if (_credentials.Client is null)
+        if (credentials is null)
+        {
+            throw new ArgumentException("Google Drive credentials are required.", nameof(credentials));
+        }
+        if (credentials.Client is null)
         {
             throw new ArgumentException("Credentials client is not configured.", nameof(credentials));
         }
+        _credentials = credentials;
     }
 
     public async Task<IReadOnlyList<GoogleDriveItem>> ListDrivesAsync(int pageSize = 100)
@@ -63,9 +67,13 @@ public sealed class GoogleDriveClient
 
             var endpoint = $"drive/{ApiVersion}/drives";
             var response = await _credentials.Client.GetAsync(endpoint, query, null);
-            response.EnsureSuccessStatusCode();
-
             var payload = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Failed to list Google Drives. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+            }
+
             var drives = JsonSerializer.Deserialize<GoogleDriveListResponse>(payload);
             if (drives?.Drives is { Count: > 0 })
             {
@@ -140,9 +148,13 @@ public sealed class GoogleDriveClient
 
             var endpoint = $"drive/{ApiVersion}/files";
             var response = await _credentials.Client.GetAsync(endpoint, query, null);
-            response.EnsureSuccessStatusCode();
-
             var payload = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Failed to list spreadsheets from drive '{driveId}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+            }
+
             var files = JsonSerializer.Deserialize<GoogleDriveFileListResponse>(payload);
             if (files?.Files is { Count: > 0 })
             {
