@@ -72,7 +72,7 @@ public class GoogleSheetsConnector : IAction
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteDimension), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.GetRows), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.ClearRange), LogicalOperator = LogicalOperator.Or)]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRow), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [Validator(IsRequired = false)]
     public string? SpreadsheetId { get; set; }
@@ -88,7 +88,7 @@ public class GoogleSheetsConnector : IAction
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteDimension), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.GetRows), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.ClearRange), LogicalOperator = LogicalOperator.Or)]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRow), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public string? SheetId { get; set; }
 
@@ -101,14 +101,14 @@ public class GoogleSheetsConnector : IAction
     [Validator(IsRequired = false)]
     public string? NewSheetTitle { get; set; }
 
-    [FEDecorator(Label = "Range", Type = FeComponentType.Text, RowId = 40, Parent = "Configuration")]
+    [FEDecorator(Label = "Range", Type = FeComponentType.Text, RowId = 40, Parent = "Configuration",
+        Tooltip = "Optional. Specify a range in A1 notation. Examples: \"A1:C10\" (cell range), \"A:C\" (columns A to C), \"2:5\" (rows 2 to 5). Leave empty to use entire sheet.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.GetRows))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.ClearRange), LogicalOperator = LogicalOperator.Or)]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public string? Range { get; set; }
 
@@ -156,7 +156,7 @@ public class GoogleSheetsConnector : IAction
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange))]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRow))]
     [Validator(IsRequired = false)]
     public string? TargetRowNumber { get; set; }
 
@@ -199,7 +199,7 @@ public class GoogleSheetsConnector : IAction
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendRow))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendOrUpdateRow), LogicalOperator = LogicalOperator.Or)]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRow), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public string? RowValuesJson { get; set; }
 
@@ -242,8 +242,8 @@ public class GoogleSheetsConnector : IAction
                 => Response = await execute.DeleteDimension(SpreadsheetId, SheetId, Dimension, StartIndex, EndIndex),
             GoogleSheetsActionType.GetRows
                 => Response = await execute.GetRows(SpreadsheetId, SheetId, Range),
-            GoogleSheetsActionType.UpdateRowByRange
-                => Response = await execute.UpdateRowByRange(SpreadsheetId, SheetId, TargetRowNumber, RowValuesJson),
+            GoogleSheetsActionType.UpdateRow
+                => Response = await execute.UpdateRow(SpreadsheetId, SheetId, TargetRowNumber, RowValuesJson),
             _ => throw new Exception($"Action '{actionType}' is not implemented.")
         };
     }
@@ -285,7 +285,7 @@ public class GoogleSheetsConnector : IAction
             GoogleSheetsActionType.DeleteDimension,
             GoogleSheetsActionType.GetRows,
             GoogleSheetsActionType.ClearRange,
-            GoogleSheetsActionType.UpdateRowByRange
+            GoogleSheetsActionType.UpdateRow
         };
 
         if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType) ||
@@ -324,7 +324,7 @@ public class GoogleSheetsConnector : IAction
             GoogleSheetsActionType.DeleteDimension,
             GoogleSheetsActionType.GetRows,
             GoogleSheetsActionType.ClearRange,
-            GoogleSheetsActionType.UpdateRowByRange
+            GoogleSheetsActionType.UpdateRow
         };
 
         if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType) ||
@@ -350,7 +350,7 @@ public class GoogleSheetsConnector : IAction
         var permittedActions = new List<GoogleSheetsActionType>()
         {
             GoogleSheetsActionType.AppendOrUpdateRow,
-            GoogleSheetsActionType.UpdateRowByRange
+            GoogleSheetsActionType.UpdateRow
         };
 
         if (!Enum.TryParse(SelectedAction, out GoogleSheetsActionType actionType) ||
@@ -361,13 +361,16 @@ public class GoogleSheetsConnector : IAction
 
         var executionService = new GoogleExecutionService(SheetsCredentials, DriveCredentials);
 
-        var headers = await executionService.GetSheetHeaders(SpreadsheetId, SheetId);
-        foreach (var header in headers)
+        if (actionType is GoogleSheetsActionType.AppendOrUpdateRow)
         {
-            HeaderOptions.Add(header);
+            var headers = await executionService.GetSheetHeaders(SpreadsheetId, SheetId);
+            foreach (var header in headers)
+            {
+                HeaderOptions.Add(header);
+            }
         }
 
-        if (actionType is GoogleSheetsActionType.UpdateRowByRange)
+        if (actionType is GoogleSheetsActionType.UpdateRow)
         {
             var rows = await executionService.GetRowNumbers(SpreadsheetId, SheetId);
             foreach (var row in rows)
@@ -388,7 +391,7 @@ public class GoogleSheetsConnector : IAction
             GoogleSheetsActionType.GetRows => "Get rows",
             GoogleSheetsActionType.AppendRow => "Append row",
             GoogleSheetsActionType.AppendOrUpdateRow => "Append or update row",
-            GoogleSheetsActionType.UpdateRowByRange => "Update row by range",
+            GoogleSheetsActionType.UpdateRow => "Update row",
             GoogleSheetsActionType.ClearRange => "Clear sheet or range",
             GoogleSheetsActionType.DeleteDimension => "Delete rows or columns",
             _ => action.ToString()

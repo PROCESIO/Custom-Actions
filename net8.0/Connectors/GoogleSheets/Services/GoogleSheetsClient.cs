@@ -402,7 +402,7 @@ public sealed class GoogleSheetsClient
         ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetId);
         ArgumentException.ThrowIfNullOrWhiteSpace(dimension);
-        
+
         if (!int.TryParse(sheetId, out var sheetIdInt))
         {
             throw new ArgumentException("SheetId must be a valid integer.", nameof(sheetId));
@@ -452,7 +452,7 @@ public sealed class GoogleSheetsClient
         return payload;
     }
 
-    public async Task<string> UpdateRowByRangeAsync(
+    public async Task<string> UpdateRowAsync(
         string? spreadsheetId,
         string? sheetName,
         string? rowNumber,

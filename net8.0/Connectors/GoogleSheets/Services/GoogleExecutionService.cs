@@ -251,7 +251,7 @@ internal class GoogleExecutionService
                     {
                         // STRATEGY 1: CREATE-RENAME-DELETE (Optimized for large sheets)
                         // This is faster for large sheets as it avoids clearing millions of cells
-                        
+
                         // Step 1: Create temporary sheet
                         var tempName = $"{title}_temp_{Guid.NewGuid():N}";
                         var (newSheetId, _) = await sheetsClient.AddSheetAsync(spreadsheetId, tempName);
@@ -519,7 +519,7 @@ internal class GoogleExecutionService
         return JsonSerializer.Serialize(sheetData, SerializerOptions);
     }
 
-    public async Task<object?> UpdateRowByRange(
+    public async Task<object?> UpdateRow(
         string? spreadsheetId,
         string? sheetId,
         string? rowNumber,
@@ -547,7 +547,7 @@ internal class GoogleExecutionService
         var inputMap = ParseRowValuesJson(rowValuesJson);
         var (headers, orderedValues) = await PrepareRowValuesAsync(sheetsClient, spreadsheetId, sheetTitle, inputMap);
 
-        var payload = await sheetsClient.UpdateRowByRangeAsync(spreadsheetId, sheetTitle, rowNumber, orderedValues);
+        var payload = await sheetsClient.UpdateRowAsync(spreadsheetId, sheetTitle, rowNumber, orderedValues);
         return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
     }
 
