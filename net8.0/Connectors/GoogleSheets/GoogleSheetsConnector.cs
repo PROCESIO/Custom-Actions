@@ -15,6 +15,7 @@ namespace GoogleSheetsAction;
 [Permissions(CanDelete = true, CanDuplicate = true, CanAddFromToolbar = true)]
 public class GoogleSheetsConnector : IAction
 {
+    #region lists
     private IList<OptionModel> ActionOptions { get; } = Enum.GetValues(typeof(GoogleSheetsActionType))
         .Cast<GoogleSheetsActionType>()
         .Select(action => new OptionModel
@@ -22,7 +23,6 @@ public class GoogleSheetsConnector : IAction
             name = FormatActionName(action),
             value = action.ToString()
         }).ToList();
-
     private IList<OptionModel> DriveOptions { get; } = new List<OptionModel>();
     private IList<OptionModel> SpreadsheetOptions { get; } = new List<OptionModel>();
     private IList<OptionModel> SheetOptions { get; } = new List<OptionModel>();
@@ -33,7 +33,9 @@ public class GoogleSheetsConnector : IAction
         new OptionModel { name = "Rows", value = "ROWS" },
         new OptionModel { name = "Columns", value = "COLUMNS" }
     };
+    #endregion
 
+    #region properties
     [FEDecorator(Label = "Google Sheets Credential", Type = FeComponentType.Credentials_Rest, RowId = 2, Tab = "Google Sheets",
         CustomCredentialsTypeGuid = "a65377cf-3092-4467-83e8-61b71d59cbbd")] //Google Sheets CredentialTemplate id
     [BEDecorator(IOProperty = Direction.Input)]
@@ -162,8 +164,8 @@ public class GoogleSheetsConnector : IAction
         Tooltip = "Provide a JSON object mapping column headers to values.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendRow))]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendOrUpdateRow))]
-    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange))]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendOrUpdateRow), LogicalOperator = LogicalOperator.Or)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public string? RowValuesJson { get; set; }
 
@@ -171,6 +173,7 @@ public class GoogleSheetsConnector : IAction
     [BEDecorator(IOProperty = Direction.Output)]
     [Validator(IsRequired = false)]
     public object? Response { get; set; }
+    #endregion
 
     public async Task Execute()
     {
@@ -312,7 +315,6 @@ public class GoogleSheetsConnector : IAction
     {
         var permittedActions = new List<GoogleSheetsActionType>()
         {
-            GoogleSheetsActionType.AppendRow,
             GoogleSheetsActionType.AppendOrUpdateRow,
             GoogleSheetsActionType.UpdateRowByRange
         };
@@ -347,14 +349,14 @@ public class GoogleSheetsConnector : IAction
         {
             GoogleSheetsActionType.CreateSpreadsheet => "Create spreadsheet",
             GoogleSheetsActionType.DeleteSpreadsheet => "Delete spreadsheet",
-            GoogleSheetsActionType.AppendRow => "Append row",
-            GoogleSheetsActionType.AppendOrUpdateRow => "Append or update row",
-            GoogleSheetsActionType.ClearRange => "Clear sheet or range",
             GoogleSheetsActionType.CreateSheet => "Create sheet",
             GoogleSheetsActionType.DeleteSheet => "Delete sheet",
-            GoogleSheetsActionType.DeleteDimension => "Delete rows or columns",
             GoogleSheetsActionType.GetRows => "Get rows",
+            GoogleSheetsActionType.AppendRow => "Append row",
+            GoogleSheetsActionType.AppendOrUpdateRow => "Append or update row",
             GoogleSheetsActionType.UpdateRowByRange => "Update row by range",
+            GoogleSheetsActionType.ClearRange => "Clear sheet or range",
+            GoogleSheetsActionType.DeleteDimension => "Delete rows or columns",
             _ => action.ToString()
         };
     }

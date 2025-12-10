@@ -515,8 +515,8 @@ internal class GoogleExecutionService
         var sheetsClient = new GoogleSheetsClient(_sheets);
         var sheetTitle = await ResolveSheetTitleAsync(sheetsClient, spreadsheetId, sheetId);
 
-        var payload = await sheetsClient.GetRowsAsync(spreadsheetId, sheetTitle, range);
-        return JsonNode.Parse(payload)?.ToJsonString(SerializerOptions) ?? payload;
+        var sheetData = await sheetsClient.GetSheetValuesAsync(spreadsheetId, sheetTitle, range);
+        return JsonSerializer.Serialize(sheetData, SerializerOptions);
     }
 
     public async Task<object?> UpdateRowByRange(

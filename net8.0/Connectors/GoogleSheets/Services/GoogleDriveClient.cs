@@ -149,7 +149,7 @@ public sealed class GoogleDriveClient
             var endpoint = $"drive/{ApiVersion}/files";
             var response = await _credentials.Client.GetAsync(endpoint, query, null);
             var payload = await response.Content.ReadAsStringAsync();
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 throw new Exception($"Failed to list spreadsheets from drive '{driveId}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");

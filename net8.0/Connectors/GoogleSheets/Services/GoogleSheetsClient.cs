@@ -452,29 +452,6 @@ public sealed class GoogleSheetsClient
         return payload;
     }
 
-    public async Task<string> GetRowsAsync(
-        string? spreadsheetId,
-        string? sheetName,
-        string? range = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(spreadsheetId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
-
-        var effectiveRange = range ?? DefaultColumnRange;
-        var relativeRange = $"{sheetName}!{effectiveRange}";
-
-        var endpoint = $"{ApiVersion}/spreadsheets/{spreadsheetId}/values/{Uri.EscapeDataString(relativeRange)}";
-        var response = await _credentials.Client.GetAsync(endpoint, null, null);
-
-        var payload = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new Exception($"Failed to get rows from range '{relativeRange}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
-        }
-
-        return payload;
-    }
-
     public async Task<string> UpdateRowByRangeAsync(
         string? spreadsheetId,
         string? sheetName,
