@@ -80,6 +80,7 @@ public class GoogleSheetsConnector : IAction
     [FEDecorator(Label = "Sheet", Type = FeComponentType.Select, RowId = 30, Parent = "Configuration",
         Options = nameof(SheetOptions))]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteSheet))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendRow), LogicalOperator = LogicalOperator.Or)]
@@ -91,22 +92,30 @@ public class GoogleSheetsConnector : IAction
     [Validator(IsRequired = false)]
     public string? SheetId { get; set; }
 
-    [FEDecorator(Label = "Sheet Name", Type = FeComponentType.Text, RowId = 31, Parent = "Configuration")]
+    [FEDecorator(Label = "Sheet Name", Type = FeComponentType.Text, RowId = 31, Parent = "Configuration",
+        Tooltip = "Enter the name for the new sheet (tab) within the spreadsheet.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet))]
     [Validator(IsRequired = false)]
     public string? NewSheetTitle { get; set; }
 
     [FEDecorator(Label = "Range", Type = FeComponentType.Text, RowId = 40, Parent = "Configuration")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.GetRows))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.ClearRange), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public string? Range { get; set; }
 
-    [FEDecorator(Label = "Title", Type = FeComponentType.Text, RowId = 50, Parent = "Configuration")]
+    [FEDecorator(Label = "Title", Type = FeComponentType.Text, RowId = 50, Parent = "Configuration",
+        Tooltip = "Enter the name for the new spreadsheet.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSpreadsheet))]
     [Validator(IsRequired = false)]
     public string? SpreadsheetTitle { get; set; }
@@ -114,55 +123,80 @@ public class GoogleSheetsConnector : IAction
     [FEDecorator(Label = "Headers", Type = FeComponentType.Text, RowId = 60, Parent = "Configuration",
         Tooltip = "Provide headers as a list of strings. Example: [\"Column1\", \"Column2\", \"Column3\"]")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSpreadsheet))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
     public List<string>? Headers { get; set; }
 
-    [FEDecorator(Label = "Overwrite Existing", Type = FeComponentType.Check_box, RowId = 70, Parent = "Configuration")]
+    [FEDecorator(Label = "Overwrite Existing", Type = FeComponentType.Check_box, RowId = 70, Parent = "Configuration",
+        Tooltip = "If checked, will delete or clear any existing sheet with the same name before creating a new one.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet))]
     [Validator(IsRequired = false)]
     public bool OverwriteSheet { get; set; }
 
     [FEDecorator(Label = "Key Column", Type = FeComponentType.Select, RowId = 80, Parent = "Configuration",
-        Options = nameof(HeaderOptions))]
+        Options = nameof(HeaderOptions), 
+        Tooltip = "Select the column header that contains unique identifiers for each row. This is used to determine if a row should be updated (when a matching value is found) or appended as new (when no match exists).")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendOrUpdateRow))]
     [Validator(IsRequired = false)]
     public string? KeyColumn { get; set; }
 
     [FEDecorator(Label = "Row Number", Type = FeComponentType.Select, RowId = 90, Parent = "Configuration",
-        Options = nameof(RowIndexOptions))]
+        Options = nameof(RowIndexOptions),
+        Tooltip = "Select the row number to update. Row numbers are 1-based (row 1 is the first row).")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange))]
     [Validator(IsRequired = false)]
     public string? TargetRowNumber { get; set; }
 
-    [FEDecorator(Label = "Start Index", Type = FeComponentType.Number, RowId = 100, Parent = "Configuration")]
+    [FEDecorator(Label = "Start Index", Type = FeComponentType.Number, RowId = 100, Parent = "Configuration",
+        Tooltip = "0-based index of the first row or column to delete. For example, 0 refers to the first row/column, 1 to the second, etc.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteDimension))]
     [Validator(IsRequired = false)]
     public int? StartIndex { get; set; }
 
-    [FEDecorator(Label = "End Index", Type = FeComponentType.Number, RowId = 110, Parent = "Configuration")]
+    [FEDecorator(Label = "End Index", Type = FeComponentType.Number, RowId = 110, Parent = "Configuration",
+        Tooltip = "0-based index of the row/column after the last one to delete (exclusive). For example, to delete rows 2-4, use Start Index = 1 and End Index = 4. Leave empty to delete from Start Index to the end of the sheet.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteDimension))]
     [Validator(IsRequired = false)]
     public int? EndIndex { get; set; }
 
     [FEDecorator(Label = "Direction", Type = FeComponentType.Select, RowId = 95, Parent = "Configuration",
-        Options = nameof(DimensionOptions))]
+        Options = nameof(DimensionOptions),
+        Tooltip = "Select whether to delete entire rows or entire columns.")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.DeleteDimension))]
     [Validator(IsRequired = false)]
     public string? Dimension { get; set; }
 
     [FEDecorator(Label = "Row Values", Type = FeComponentType.Code_editor, RowId = 120, Parent = "Configuration", TextFormat = FeTextFormat.JSON,
-        Tooltip = "Provide a JSON object mapping column headers to values.")]
+        Tooltip = "Provide row data as a JSON object mapping column headers to values. Example: {\"header1\":\"value1\",\"header2\":\"value2\"}")]
     [BEDecorator(IOProperty = Direction.InputOutput)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(DriveId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SpreadsheetId), Operator = Operator.NotEquals, Value = null)]
+    [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SheetId), Operator = Operator.NotEquals, Value = null)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendRow))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.AppendOrUpdateRow), LogicalOperator = LogicalOperator.Or)]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.UpdateRowByRange), LogicalOperator = LogicalOperator.Or)]
