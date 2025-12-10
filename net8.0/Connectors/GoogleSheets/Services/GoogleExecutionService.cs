@@ -133,7 +133,7 @@ internal class GoogleExecutionService
     public async Task<object?> CreateSpreadsheet(
         string? spreadsheetTitle,
         string? driveId,
-        List<string>? headers)
+        IList<string>? headers)
     {
         var sheetsClient = new GoogleSheetsClient(_sheets);
         var createPayloadResponse = await sheetsClient.CreateSpreadSheetAsync(spreadsheetTitle);
@@ -188,7 +188,7 @@ internal class GoogleExecutionService
     /// Cleans and deduplicates a list of header strings.
     /// Trims whitespace and removes duplicate headers (case-insensitive).
     /// </summary>
-    private static List<string> CleanHeaders(List<string>? headers)
+    private static IList<string> CleanHeaders(IList<string>? headers)
     {
         return headers?
             .Where(h => !string.IsNullOrWhiteSpace(h))
@@ -214,7 +214,7 @@ internal class GoogleExecutionService
         string? spreadsheetId,
         string? newSheetTitle,
         bool overwrite,
-        List<string>? headers)
+        IList<string>? headers)
     {
         if (string.IsNullOrWhiteSpace(spreadsheetId))
         {

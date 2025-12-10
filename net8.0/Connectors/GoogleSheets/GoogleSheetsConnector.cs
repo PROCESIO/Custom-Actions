@@ -127,7 +127,7 @@ public class GoogleSheetsConnector : IAction
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSpreadsheet))]
     [DependencyDecorator(Tab = "Google Sheets", Control = nameof(SelectedAction), Operator = Operator.Equals, Value = nameof(GoogleSheetsActionType.CreateSheet), LogicalOperator = LogicalOperator.Or)]
     [Validator(IsRequired = false)]
-    public List<string>? Headers { get; set; }
+    public IList<string>? Headers { get; set; }
 
     [FEDecorator(Label = "Overwrite Existing", Type = FeComponentType.Check_box, RowId = 70, Parent = "Configuration",
         Tooltip = "If checked, will delete or clear any existing sheet with the same name before creating a new one.")]
