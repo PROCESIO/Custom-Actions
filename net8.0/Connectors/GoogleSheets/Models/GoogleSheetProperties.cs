@@ -9,4 +9,7 @@ public sealed record GoogleSheetProperties
 
     [JsonPropertyName("title")]
     public string? Title { get; init; }
+
+    [JsonPropertyName("gridProperties")]
+    public GoogleGridProperties? GridProperties { get; init; }
 }

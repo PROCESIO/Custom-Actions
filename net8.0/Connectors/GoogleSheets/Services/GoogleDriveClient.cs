@@ -7,15 +7,41 @@ namespace GoogleSheetsAction.Services;
 
 public sealed class GoogleDriveClient
 {
+    #region constants
+    /// <summary>
+    /// API version for Google Drive API.
+    /// </summary>
+    public const string ApiVersion = "v3";
+
+    /// <summary>
+    /// Special drive ID representing the user's personal "My Drive".
+    /// </summary>
+    public const string RootDriveId = "root";
+
+    /// <summary>
+    /// Represents the query parameter to indicate support for all drives.
+    /// </summary>
+    public const string SupportsAllDrivesQuery = "supportsAllDrives";
+
+    /// <summary>
+    /// Represents the query parameter to include items from all drives.
+    /// </summary>
+    public const string IncludeItemsFromAllDrivesQuery = "includeItemsFromAllDrives";
+    #endregion
+
     private readonly APICredentialsManager _credentials;
 
     public GoogleDriveClient(APICredentialsManager? credentials)
     {
-        _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
-        if (_credentials.Client is null)
+        if (credentials is null)
+        {
+            throw new ArgumentException("Google Drive credentials are required.", nameof(credentials));
+        }
+        if (credentials.Client is null)
         {
             throw new ArgumentException("Credentials client is not configured.", nameof(credentials));
         }
+        _credentials = credentials;
     }
 
     public async Task<IReadOnlyList<GoogleDriveItem>> ListDrivesAsync(int pageSize = 100)
@@ -39,10 +65,15 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client.GetAsync("drive/v3/drives", query, new());
-            response.EnsureSuccessStatusCode();
-
+            var endpoint = $"drive/{ApiVersion}/drives";
+            var response = await _credentials.Client.GetAsync(endpoint, query, null);
             var payload = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Failed to list Google Drives. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+            }
+
             var drives = JsonSerializer.Deserialize<GoogleDriveListResponse>(payload);
             if (drives?.Drives is { Count: > 0 })
             {
@@ -56,18 +87,22 @@ public sealed class GoogleDriveClient
     }
 
     public async Task UpdateFileLocationAsync(
-        string driveId,
-        string spreadSheetId)
+        string? driveId,
+        string? spreadSheetId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(driveId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(spreadSheetId);
+
         var driveQuery = new Dictionary<string, string>
         {
-            ["supportsAllDrives"] = "true",
-            ["includeItemsFromAllDrives"] = "true",
+            [SupportsAllDrivesQuery] = "true",
+            [IncludeItemsFromAllDrivesQuery] = "true",
             ["addParents"] = driveId,
-            ["removeParents"] = "root"
+            ["removeParents"] = RootDriveId
         };
 
-        var patchResponse = await _credentials.Client.PatchAsync($"drive/v3/files/{spreadSheetId}", driveQuery, null, null);
+        var endpoint = $"drive/{ApiVersion}/files/{spreadSheetId}";
+        var patchResponse = await _credentials.Client.PatchAsync(endpoint, driveQuery, null, null);
         if (!patchResponse.IsSuccessStatusCode)
         {
             var patchPayload = await patchResponse.Content.ReadAsStringAsync();
@@ -83,13 +118,13 @@ public sealed class GoogleDriveClient
         var query = new Dictionary<string, string>
         {
             ["q"] = "mimeType='application/vnd.google-apps.spreadsheet'",
-            ["includeItemsFromAllDrives"] = "true",
-            ["supportsAllDrives"] = "true",
+            [IncludeItemsFromAllDrivesQuery] = "true",
+            [SupportsAllDrivesQuery] = "true",
             ["fields"] = "nextPageToken,files(id,name,webViewLink)",
             ["pageSize"] = pageSize.ToString(CultureInfo.InvariantCulture)
         };
 
-        if (driveId.Equals("root", StringComparison.OrdinalIgnoreCase))
+        if (driveId.Equals(RootDriveId, StringComparison.OrdinalIgnoreCase))
         {
             query["corpora"] = "user";
         }
@@ -111,10 +146,15 @@ public sealed class GoogleDriveClient
                 query.Remove("pageToken");
             }
 
-            var response = await _credentials.Client.GetAsync("drive/v3/files", query, new());
-            response.EnsureSuccessStatusCode();
-
+            var endpoint = $"drive/{ApiVersion}/files";
+            var response = await _credentials.Client.GetAsync(endpoint, query, null);
             var payload = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Failed to list spreadsheets from drive '{driveId}'. Status {(int)response.StatusCode} {response.StatusCode}. Content: {payload}");
+            }
+
             var files = JsonSerializer.Deserialize<GoogleDriveFileListResponse>(payload);
             if (files?.Files is { Count: > 0 })
             {
@@ -133,11 +173,12 @@ public sealed class GoogleDriveClient
 
         var query = new Dictionary<string, string>
         {
-            ["supportsAllDrives"] = "true",
-            ["includeItemsFromAllDrives"] = "true"
+            [SupportsAllDrivesQuery] = "true",
+            [IncludeItemsFromAllDrivesQuery] = "true"
         };
 
-        var deleteResponse = await _credentials.Client.DeleteAsync($"drive/v3/files/{spreadsheetId}", query, null);
+        var endpoint = $"drive/{ApiVersion}/files/{spreadsheetId}";
+        var deleteResponse = await _credentials.Client.DeleteAsync(endpoint, query, null);
         if (!deleteResponse.IsSuccessStatusCode)
         {
             var payload = await deleteResponse.Content.ReadAsStringAsync();
